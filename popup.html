@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Text Replacer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Text Replacer</h1>
+      <p class="subtitle">Configure text replacements for web pages</p>
+    </header>
+
+    <div class="replacements-list" id="replacementsList">
+      <!-- Replacements will be dynamically added here -->
+    </div>
+
+    <button class="btn btn-primary" id="addReplacementBtn">
+      + Add New Replacement
+    </button>
+  </div>
+
+  <!-- Modal for adding/editing replacements -->
+  <div class="modal" id="replacementModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">Add New Replacement</h2>
+        <button class="modal-close" id="closeModal">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Text to Replace:</label>
+          <input type="text" id="textToReplace" class="text-input" placeholder="Enter text to replace">
+        </div>
+        <div class="form-group">
+          <label>Replacement Text:</label>
+          <input type="text" id="replacementText" class="text-input" placeholder="Enter replacement text">
+        </div>
+        <div class="form-group">
+          <label>Scope (Optional):</label>
+          <input type="text" id="scope" class="text-input" placeholder="e.g., example.com or leave empty">
+          <small class="help-text">Leave empty to apply on all pages</small>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
+          <button class="btn btn-primary" id="saveBtn">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Replacement Item Template -->
+  <template id="replacementTemplate">
+    <div class="replacement-item">
+      <div class="replacement-header">
+        <div class="replacement-info">
+          <span class="replacement-number"></span>
+          <span class="replacement-preview"></span>
+        </div>
+        <div class="replacement-actions">
+          <button class="btn-icon edit-btn" title="Edit">✎</button>
+          <button class="btn-icon delete-btn" title="Delete">×</button>
+        </div>
+      </div>
+      <div class="replacement-details">
+        <div class="detail-row">
+          <span class="detail-label">Replace:</span>
+          <span class="detail-value" data-field="textToReplace"></span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">With:</span>
+          <span class="detail-value" data-field="replacementText"></span>
+        </div>
+        <div class="detail-row" data-scope-row>
+          <span class="detail-label">Scope:</span>
+          <span class="detail-value" data-field="scope"></span>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script src="popup.js"></script>
+</body>
+</html>
