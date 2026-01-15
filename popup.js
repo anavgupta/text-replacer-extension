@@ -30,57 +30,80 @@ function saveReplacements() {
   });
 }
 
-// Render all replacements
+// Render all replacements as table rows
 function renderReplacements() {
-  const container = document.getElementById('replacementsList');
-  const template = document.getElementById('replacementTemplate');
+  const tbody = document.getElementById('replacementsList');
+  const table = document.getElementById('replacementsTable');
+  const emptyState = document.getElementById('emptyState');
+  const countLabel = document.getElementById('countLabel');
+  
+  // Update count
+  countLabel.textContent = `${replacements.length} replacement${replacements.length !== 1 ? 's' : ''}`;
   
   if (replacements.length === 0) {
-    container.innerHTML = '<div class="empty-state"><p>No replacements configured.<br>Click "Add New Replacement" to create one.</p></div>';
+    table.classList.add('hidden');
+    emptyState.classList.add('show');
     return;
   }
 
-  container.innerHTML = '';
+  table.classList.remove('hidden');
+  emptyState.classList.remove('show');
+  tbody.innerHTML = '';
   
   replacements.forEach((replacement, index) => {
-    const clone = template.content.cloneNode(true);
+    const tr = document.createElement('tr');
     
-    // Set replacement number
-    clone.querySelector('.replacement-number').textContent = `Replacement ${index + 1}`;
+    // Find column
+    const tdFind = document.createElement('td');
+    tdFind.innerHTML = `<span class="cell-text" title="${escapeHtml(replacement.textToReplace || '')}">${escapeHtml(replacement.textToReplace || '(empty)')}</span>`;
+    tr.appendChild(tdFind);
     
-    // Set preview text
-    const preview = clone.querySelector('.replacement-preview');
-    if (replacement.textToReplace && replacement.replacementText) {
-      preview.textContent = `"${replacement.textToReplace}" → "${replacement.replacementText}"`;
-    } else {
-      preview.textContent = 'Incomplete replacement';
-      preview.style.color = '#ff9800';
-    }
+    // Replace column
+    const tdReplace = document.createElement('td');
+    tdReplace.innerHTML = `<span class="cell-text" title="${escapeHtml(replacement.replacementText || '')}">${escapeHtml(replacement.replacementText || '(empty)')}</span>`;
+    tr.appendChild(tdReplace);
     
-    // Set detail values
-    clone.querySelector('[data-field="textToReplace"]').textContent = replacement.textToReplace || '(empty)';
-    clone.querySelector('[data-field="replacementText"]').textContent = replacement.replacementText || '(empty)';
+    // Scope column
+    const tdScope = document.createElement('td');
+    const scopeText = replacement.scope && replacement.scope.trim() ? replacement.scope : '—';
+    const scopeClass = replacement.scope && replacement.scope.trim() ? 'scope' : 'scope empty';
+    tdScope.innerHTML = `<span class="cell-text ${scopeClass}" title="${escapeHtml(replacement.scope || 'All pages')}">${escapeHtml(scopeText)}</span>`;
+    tr.appendChild(tdScope);
     
-    const scopeRow = clone.querySelector('[data-scope-row]');
-    const scopeValue = clone.querySelector('[data-field="scope"]');
-    if (replacement.scope && replacement.scope.trim()) {
-      scopeValue.textContent = replacement.scope;
-    } else {
-      scopeRow.style.display = 'none';
-    }
+    // Actions column
+    const tdActions = document.createElement('td');
+    tdActions.innerHTML = `
+      <div class="action-buttons">
+        <button class="btn-icon edit-btn" title="Edit" data-index="${index}">✎</button>
+        <button class="btn-icon delete-btn" title="Delete" data-index="${index}">×</button>
+      </div>
+    `;
+    tr.appendChild(tdActions);
     
-    // Add edit button handler
-    clone.querySelector('.edit-btn').addEventListener('click', () => {
+    tbody.appendChild(tr);
+  });
+  
+  // Add event listeners
+  tbody.querySelectorAll('.edit-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const index = parseInt(e.target.getAttribute('data-index'));
       openModal(index);
     });
-    
-    // Add delete button handler
-    clone.querySelector('.delete-btn').addEventListener('click', () => {
+  });
+  
+  tbody.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const index = parseInt(e.target.getAttribute('data-index'));
       deleteReplacement(index);
     });
-    
-    container.appendChild(clone);
   });
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // Open modal for adding/editing
@@ -147,7 +170,7 @@ function saveReplacement() {
 
 // Delete a replacement
 function deleteReplacement(index) {
-  if (confirm('Are you sure you want to delete this replacement?')) {
+  if (confirm('Delete this replacement?')) {
     replacements.splice(index, 1);
     saveReplacements();
     renderReplacements();

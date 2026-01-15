@@ -9,25 +9,38 @@
 <body>
   <div class="container">
     <header>
-      <h1>Text Replacer</h1>
-      <p class="subtitle">Configure text replacements for web pages</p>
+      <div class="header-row">
+        <div>
+          <h1>Text Replacer</h1>
+          <p class="subtitle" id="countLabel">0 replacements</p>
+        </div>
+        <button class="btn btn-primary btn-add" id="addReplacementBtn" title="Add New">Add</button>
+      </div>
     </header>
 
-    <div class="replacements-list" id="replacementsList">
-      <!-- Replacements will be dynamically added here -->
+    <div class="replacements-container">
+      <table class="replacements-table" id="replacementsTable">
+        <thead>
+          <tr>
+            <th class="col-find">Find</th>
+            <th class="col-replace">Replace</th>
+            <th class="col-scope">Scope</th>
+            <th class="col-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="replacementsList">
+          <!-- Replacements will be dynamically added here -->
+        </tbody>
+      </table>
+      <div class="empty-state" id="emptyState">
+        <p>No replacements configured.<br>Click "+ Add" to create one.</p>
+      </div>
     </div>
 
-    <button class="btn btn-primary" id="addReplacementBtn">
-      + Add New Replacement
-    </button>
-
     <div class="backup-section">
-      <span class="backup-label">Backup:</span>
-      <div class="backup-buttons">
-        <button class="btn-small btn-outline" id="exportJsonBtn" title="Export as JSON">Export JSON</button>
-        <button class="btn-small btn-outline" id="exportCsvBtn" title="Export as CSV">Export CSV</button>
-        <button class="btn-small btn-outline" id="importBtn" title="Import from file">Import</button>
-      </div>
+      <button class="btn-small btn-outline" id="exportJsonBtn" title="Export as JSON">Export JSON</button>
+      <button class="btn-small btn-outline" id="exportCsvBtn" title="Export as CSV">Export CSV</button>
+      <button class="btn-small btn-outline" id="importBtn" title="Import from file">Import</button>
       <input type="file" id="importFile" accept=".json,.csv" style="display: none;">
     </div>
   </div>
@@ -60,36 +73,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Replacement Item Template -->
-  <template id="replacementTemplate">
-    <div class="replacement-item">
-      <div class="replacement-header">
-        <div class="replacement-info">
-          <span class="replacement-number"></span>
-          <span class="replacement-preview"></span>
-        </div>
-        <div class="replacement-actions">
-          <button class="btn-icon edit-btn" title="Edit">✎</button>
-          <button class="btn-icon delete-btn" title="Delete">×</button>
-        </div>
-      </div>
-      <div class="replacement-details">
-        <div class="detail-row">
-          <span class="detail-label">Replace:</span>
-          <span class="detail-value" data-field="textToReplace"></span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">With:</span>
-          <span class="detail-value" data-field="replacementText"></span>
-        </div>
-        <div class="detail-row" data-scope-row>
-          <span class="detail-label">Scope:</span>
-          <span class="detail-value" data-field="scope"></span>
-        </div>
-      </div>
-    </div>
-  </template>
 
   <script src="popup.js"></script>
 </body>
