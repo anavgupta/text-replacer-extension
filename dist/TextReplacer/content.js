@@ -3,10 +3,9 @@
 (function() {
   'use strict';
 
-  console.log('Text Replacer: Content script loaded on', window.location.href);
 
-  // Function to check if current URL matches scope
-  function matchesScope(url, scope) {
+  // Function to check if current URL matches a single scope pattern
+  function matchesSingleScope(url, scope) {
     if (!scope || scope.trim() === '') {
       return true; // No scope means apply everywhere
     }
@@ -14,32 +13,51 @@
     try {
       const urlObj = new URL(url);
       const scopeLower = scope.toLowerCase().trim();
+      const fullUrl = url.toLowerCase();
       
-      // Check if scope is a domain pattern
+      // Check if scope contains wildcard
       if (scopeLower.includes('*')) {
         const pattern = scopeLower
-          .replace(/\./g, '\\.')
-          .replace(/\*/g, '.*');
-        const regex = new RegExp(`^${pattern}$`, 'i');
-        return regex.test(urlObj.hostname);
+          .replace(/[.+?^${}()|[\]\\]/g, '\\$&')  // Escape special chars except *
+          .replace(/\*/g, '.*');  // Convert * to .*
+        const regex = new RegExp(pattern, 'i');
+        
+        // Test against full URL (path matching)
+        if (regex.test(fullUrl)) {
+          return true;
+        }
+        // Also test against hostname only
+        if (regex.test(urlObj.hostname)) {
+          return true;
+        }
+        return false;
       }
       
       // Check if scope is a full URL pattern
       if (scopeLower.startsWith('http://') || scopeLower.startsWith('https://')) {
-        const pattern = scopeLower
-          .replace(/\./g, '\\.')
-          .replace(/\*/g, '.*');
-        const regex = new RegExp(`^${pattern}`, 'i');
-        return regex.test(url);
+        return fullUrl.includes(scopeLower);
       }
       
-      // Simple domain/hostname matching
+      // Simple domain/hostname or path matching
       return urlObj.hostname.toLowerCase().includes(scopeLower) ||
-             urlObj.hostname.toLowerCase() === scopeLower;
+             fullUrl.includes(scopeLower);
     } catch (e) {
       console.error('Text Replacer: Error checking scope', e);
       return true; // Default to true if scope check fails
     }
+  }
+
+  // Function to check if URL matches any of the scopes (comma-separated)
+  function matchesScope(url, scope) {
+    if (!scope || scope.trim() === '') {
+      return true; // No scope means apply everywhere
+    }
+
+    // Split by comma and check each scope
+    const scopes = scope.split(',').map(s => s.trim()).filter(s => s);
+    
+    // Return true if ANY scope matches
+    return scopes.some(singleScope => matchesSingleScope(url, singleScope));
   }
 
   // Function to replace text in a node
@@ -63,9 +81,11 @@
         }
 
         // Perform replacement (case-insensitive by default)
-        const regex = new RegExp(textToReplace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-        if (regex.test(text)) {
-          text = text.replace(regex, replacementText);
+        const escapedText = textToReplace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escapedText, 'gi');
+        const newText = text.replace(regex, replacementText);
+        if (newText !== text) {
+          text = newText;
           modified = true;
         }
       });
@@ -90,7 +110,6 @@
       }
       
       const replacements = result.replacements || [];
-      console.log('Text Replacer: Found', replacements.length, 'replacement(s)');
       
       if (replacements.length === 0) {
         return;
@@ -104,7 +123,6 @@
         return matchesScope(window.location.href, replacement.scope);
       });
 
-      console.log('Text Replacer: Active replacements for this page:', activeReplacements.length);
       
       if (activeReplacements.length === 0) {
         return;

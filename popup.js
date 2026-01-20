@@ -316,14 +316,23 @@ function importReplacements(file) {
             r && typeof r.textToReplace === 'string' && typeof r.replacementText === 'string'
           );
         } else if (data.codes && Array.isArray(data.codes)) {
-          // Codes format: { codes: [{code, name}] } - replace code with name only
+          // Codes format: { codes: [{code, name, scope?}] } - replace code with name
+          // scope can be string or array of strings
           validReplacements = data.codes
             .filter(r => r && r.code && r.name)
-            .map(r => ({
-              textToReplace: r.code,
-              replacementText: r.name,
-              scope: ''
-            }));
+            .map(r => {
+              let scope = '';
+              if (Array.isArray(r.scope)) {
+                scope = r.scope.join(', ');  // Convert array to comma-separated
+              } else if (r.scope) {
+                scope = r.scope;
+              }
+              return {
+                textToReplace: r.code,
+                replacementText: r.name,
+                scope: scope
+              };
+            });
         } else if (Array.isArray(data)) {
           // Plain array format
           validReplacements = data.filter(r => {

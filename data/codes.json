@@ -1,54 +1,21 @@
 {
   "version": "1.0.0",
-  "description": "Event/Error Codes Reference",
+  "description": "Sample data file - Replace with your own codes",
   "codes": [
     {
-      "code": "8601",
-      "name": "On QS Load"
+      "code": "EXAMPLE_CODE_1",
+      "name": "Example Replacement Text 1",
+      "scope": [
+        "*/example/path/*"
+      ]
     },
     {
-      "code": "8602",
-      "name": "After Promotion"
-    },
-    {
-      "code": "8603",
-      "name": "After DOA"
-    },
-    {
-      "code": "8604",
-      "name": "After TAX"
-    },
-    {
-      "code": "8609",
-      "name": "Relate Credit Conditions"
-    },
-    {
-      "code": "8641",
-      "name": "Rework Quote"
-    },
-    {
-      "code": "8651",
-      "name": "Capture Payment"
-    },
-    {
-      "code": "8655",
-      "name": "Make Payment"
-    },
-    {
-      "code": "8673",
-      "name": "DOA Polling"
-    },
-    {
-      "code": "8676",
-      "name": "Recall DOA 1"
-    },
-    {
-      "code": "8677",
-      "name": "Recall DOA 2"
-    },
-    {
-      "code": "5698",
-      "name": "Get PPFEE"
+      "code": "EXAMPLE_CODE_2",
+      "name": "Example Replacement Text 2",
+      "scope": [
+        "*.example.com",
+        "*/another/path*"
+      ]
     }
   ]
 }
