@@ -9,3 +9,6 @@ Thumbs.db
 # Temporary files
 *.log
 *.tmp
+
+# Local data files (not committed)
+data/*.local.json
