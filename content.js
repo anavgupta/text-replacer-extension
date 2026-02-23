@@ -3,7 +3,6 @@
 (function() {
   'use strict';
 
-
   // Function to check if current URL matches a single scope pattern
   function matchesSingleScope(url, scope) {
     if (!scope || scope.trim() === '') {
@@ -67,7 +66,7 @@
       let modified = false;
 
       replacements.forEach(replacement => {
-        const { textToReplace, replacementText, scope } = replacement;
+        const { textToReplace, replacementText, scope, wholeWord } = replacement;
         
         if (!textToReplace || !replacementText) {
           return;
@@ -80,9 +79,26 @@
           }
         }
 
-        // Perform replacement (case-insensitive by default)
+        // Escape special regex characters
         const escapedText = textToReplace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(escapedText, 'gi');
+        
+        // Build regex pattern based on wholeWord option
+        let pattern;
+        if (wholeWord) {
+          // Use lookaround for whole-word matching that works with special characters
+          // (?<!\S) = not preceded by non-whitespace, (?!\S) = not followed by non-whitespace
+          // Fall back to \b for purely alphanumeric search terms
+          const hasSpecialChars = /[^a-zA-Z0-9_]/.test(textToReplace);
+          if (hasSpecialChars) {
+            pattern = `(?<=^|[\\s])${escapedText}(?=[\\s]|$)`;
+          } else {
+            pattern = `\\b${escapedText}\\b`;
+          }
+        } else {
+          pattern = escapedText;
+        }
+        
+        const regex = new RegExp(pattern, 'gi');
         const newText = text.replace(regex, replacementText);
         if (newText !== text) {
           text = newText;
@@ -101,11 +117,16 @@
     }
   }
 
-  // Function to perform replacements
+  // Function to perform replacements and return count
   function performReplacements() {
-    chrome.storage.sync.get(['replacements'], (result) => {
+    chrome.storage.sync.get(['replacements', 'globalEnabled'], (result) => {
       if (chrome.runtime.lastError) {
         console.error('Text Replacer: Storage error', chrome.runtime.lastError);
+        return;
+      }
+      
+      // Check if globally enabled
+      if (result.globalEnabled === false) {
         return;
       }
       
@@ -115,15 +136,19 @@
         return;
       }
 
-      // Filter replacements that match current scope
+      // Filter replacements that are enabled and match current scope
       const activeReplacements = replacements.filter(replacement => {
+        // Check if individual replacement is enabled
+        if (replacement.enabled === false) {
+          return false;
+        }
+        // Check scope
         if (!replacement.scope || replacement.scope.trim() === '') {
           return true;
         }
         return matchesScope(window.location.href, replacement.scope);
       });
 
-      
       if (activeReplacements.length === 0) {
         return;
       }
@@ -163,14 +188,18 @@
 
   // Listen for storage changes to update replacements in real-time
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName === 'sync' && changes.replacements) {
+    if (areaName === 'sync' && (changes.replacements || changes.globalEnabled)) {
       performReplacements();
     }
   });
 
-  // Listen for messages from popup
+  // Listen for messages from popup or background
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'updateReplacements') {
+      performReplacements();
+      sendResponse({ success: true });
+    } else if (request.action === 'toggleGlobal') {
+      // Refresh the page content when global toggle changes
       performReplacements();
       sendResponse({ success: true });
     }

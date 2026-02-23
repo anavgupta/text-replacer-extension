@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Text Replacer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Replace text on web pages with custom replacements. Configure text to replace, replacement text, and optional scope filtering.",
   "permissions": [
     "storage",
@@ -33,5 +33,14 @@
   },
   "background": {
     "service_worker": "background.js"
+  },
+  "commands": {
+    "toggle-extension": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+R",
+        "mac": "Command+Shift+R"
+      },
+      "description": "Toggle Text Replacer on/off"
+    }
   }
 }

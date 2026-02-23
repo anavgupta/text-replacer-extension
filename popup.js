@@ -2,27 +2,33 @@
 
 let replacements = [];
 let editingIndex = -1;
+let globalEnabled = true;
+let searchTerm = '';
 
-// Load replacements from storage
+// Load replacements and settings from storage
 function loadReplacements() {
-  chrome.storage.sync.get(['replacements'], (result) => {
+  chrome.storage.sync.get(['replacements', 'globalEnabled'], (result) => {
     replacements = result.replacements || [];
+    globalEnabled = result.globalEnabled !== false; // Default to true
+    document.getElementById('globalToggle').checked = globalEnabled;
     renderReplacements();
+    updateBadge();
   });
 }
 
 // Save replacements to storage
 function saveReplacements() {
-  chrome.storage.sync.set({ replacements }, () => {
+  chrome.storage.sync.set({ replacements, globalEnabled }, () => {
     if (chrome.runtime.lastError) {
       console.error('Error saving replacements:', chrome.runtime.lastError);
       alert('Error saving replacements. Please try again.');
     } else {
-      // Notify content scripts to update (storage.onChanged will also trigger this)
+      updateBadge();
+      // Notify content scripts to update
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0] && tabs[0].url && !tabs[0].url.startsWith('chrome://') && !tabs[0].url.startsWith('edge://')) {
           chrome.tabs.sendMessage(tabs[0].id, { action: 'updateReplacements' }).catch(() => {
-            // Content script might not be ready, that's okay - storage.onChanged will handle it
+            // Content script might not be ready
           });
         }
       });
@@ -30,32 +36,71 @@ function saveReplacements() {
   });
 }
 
+// Update badge with count of enabled replacements
+function updateBadge() {
+  const enabledCount = globalEnabled ? replacements.filter(r => r.enabled !== false).length : 0;
+  chrome.runtime.sendMessage({ action: 'updateBadge', count: enabledCount });
+}
+
 // Render all replacements as table rows
 function renderReplacements() {
   const tbody = document.getElementById('replacementsList');
   const table = document.getElementById('replacementsTable');
   const emptyState = document.getElementById('emptyState');
+  const noResults = document.getElementById('noResults');
   const countLabel = document.getElementById('countLabel');
   
   // Update count
-  countLabel.textContent = `${replacements.length} replacement${replacements.length !== 1 ? 's' : ''}`;
+  const enabledCount = replacements.filter(r => r.enabled !== false).length;
+  countLabel.textContent = `${enabledCount}/${replacements.length} active`;
   
   if (replacements.length === 0) {
     table.classList.add('hidden');
     emptyState.classList.add('show');
+    noResults.classList.remove('show');
+    return;
+  }
+
+  // Filter by search term
+  const filteredReplacements = replacements.map((r, i) => ({ ...r, originalIndex: i }))
+    .filter(r => {
+      if (!searchTerm) return true;
+      const term = searchTerm.toLowerCase();
+      return (r.textToReplace || '').toLowerCase().includes(term) ||
+             (r.replacementText || '').toLowerCase().includes(term) ||
+             (r.scope || '').toLowerCase().includes(term);
+    });
+
+  if (filteredReplacements.length === 0) {
+    table.classList.add('hidden');
+    emptyState.classList.remove('show');
+    noResults.classList.add('show');
     return;
   }
 
   table.classList.remove('hidden');
   emptyState.classList.remove('show');
+  noResults.classList.remove('show');
   tbody.innerHTML = '';
   
-  replacements.forEach((replacement, index) => {
+  filteredReplacements.forEach((replacement) => {
+    const index = replacement.originalIndex;
+    const isEnabled = replacement.enabled !== false;
     const tr = document.createElement('tr');
+    if (!isEnabled) tr.classList.add('disabled');
+    
+    // Toggle column
+    const tdToggle = document.createElement('td');
+    tdToggle.innerHTML = `<input type="checkbox" class="row-toggle" data-index="${index}" ${isEnabled ? 'checked' : ''}>`;
+    tr.appendChild(tdToggle);
     
     // Find column
     const tdFind = document.createElement('td');
-    tdFind.innerHTML = `<span class="cell-text" title="${escapeHtml(replacement.textToReplace || '')}">${escapeHtml(replacement.textToReplace || '(empty)')}</span>`;
+    let findContent = `<span class="cell-text" title="${escapeHtml(replacement.textToReplace || '')}">${escapeHtml(replacement.textToReplace || '(empty)')}</span>`;
+    if (replacement.wholeWord) {
+      findContent += `<span class="whole-word-badge" title="Whole word only">W</span>`;
+    }
+    tdFind.innerHTML = findContent;
     tr.appendChild(tdFind);
     
     // Replace column
@@ -83,7 +128,17 @@ function renderReplacements() {
     tbody.appendChild(tr);
   });
   
-  // Add event listeners
+  // Add event listeners for toggles
+  tbody.querySelectorAll('.row-toggle').forEach(toggle => {
+    toggle.addEventListener('change', (e) => {
+      const index = parseInt(e.target.getAttribute('data-index'));
+      replacements[index].enabled = e.target.checked;
+      saveReplacements();
+      renderReplacements();
+    });
+  });
+  
+  // Add event listeners for edit buttons
   tbody.querySelectorAll('.edit-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const index = parseInt(e.target.getAttribute('data-index'));
@@ -91,6 +146,7 @@ function renderReplacements() {
     });
   });
   
+  // Add event listeners for delete buttons
   tbody.querySelectorAll('.delete-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const index = parseInt(e.target.getAttribute('data-index'));
@@ -119,12 +175,14 @@ function openModal(index = -1) {
     document.getElementById('textToReplace').value = replacement.textToReplace || '';
     document.getElementById('replacementText').value = replacement.replacementText || '';
     document.getElementById('scope').value = replacement.scope || '';
+    document.getElementById('wholeWord').checked = replacement.wholeWord || false;
   } else {
     // Adding new replacement
     modalTitle.textContent = 'Add New Replacement';
     document.getElementById('textToReplace').value = '';
     document.getElementById('replacementText').value = '';
     document.getElementById('scope').value = '';
+    document.getElementById('wholeWord').checked = false;
   }
   
   modal.classList.add('active');
@@ -143,6 +201,7 @@ function saveReplacement() {
   const textToReplace = document.getElementById('textToReplace').value.trim();
   const replacementText = document.getElementById('replacementText').value.trim();
   const scope = document.getElementById('scope').value.trim();
+  const wholeWord = document.getElementById('wholeWord').checked;
   
   if (!textToReplace || !replacementText) {
     alert('Please fill in both "Text to Replace" and "Replacement Text" fields.');
@@ -152,11 +211,14 @@ function saveReplacement() {
   const replacement = {
     textToReplace,
     replacementText,
-    scope
+    scope,
+    wholeWord,
+    enabled: true
   };
   
   if (editingIndex >= 0) {
-    // Update existing
+    // Preserve enabled state when editing
+    replacement.enabled = replacements[editingIndex].enabled !== false;
     replacements[editingIndex] = replacement;
   } else {
     // Add new
@@ -187,6 +249,7 @@ function exportReplacementsJson() {
   const data = {
     version: '1.0.0',
     exportDate: new Date().toISOString(),
+    globalEnabled: globalEnabled,
     replacements: replacements
   };
   
@@ -210,14 +273,16 @@ function exportReplacementsCsv() {
   }
   
   // CSV header
-  let csv = 'textToReplace,replacementText,scope\n';
+  let csv = 'textToReplace,replacementText,scope,wholeWord,enabled\n';
   
   // Add each replacement as a row
   replacements.forEach(r => {
     const textToReplace = escapeCsvField(r.textToReplace || '');
     const replacementText = escapeCsvField(r.replacementText || '');
     const scope = escapeCsvField(r.scope || '');
-    csv += `${textToReplace},${replacementText},${scope}\n`;
+    const wholeWord = r.wholeWord ? 'true' : 'false';
+    const enabled = r.enabled !== false ? 'true' : 'false';
+    csv += `${textToReplace},${replacementText},${scope},${wholeWord},${enabled}\n`;
   });
   
   const blob = new Blob([csv], { type: 'text/csv' });
@@ -301,7 +366,9 @@ function importReplacements(file) {
             validReplacements.push({
               textToReplace: fields[0],
               replacementText: fields[1] || '',
-              scope: fields[2] || ''
+              scope: fields[2] || '',
+              wholeWord: fields[3] === 'true',
+              enabled: fields[4] !== 'false'
             });
           }
         }
@@ -311,26 +378,31 @@ function importReplacements(file) {
         
         // Check for different JSON formats
         if (data.replacements && Array.isArray(data.replacements)) {
-          // Standard backup format: { replacements: [{textToReplace, replacementText, scope}] }
+          // Standard backup format
           validReplacements = data.replacements.filter(r => 
             r && typeof r.textToReplace === 'string' && typeof r.replacementText === 'string'
-          );
+          ).map(r => ({
+            ...r,
+            enabled: r.enabled !== false,
+            wholeWord: r.wholeWord || false
+          }));
         } else if (data.codes && Array.isArray(data.codes)) {
-          // Codes format: { codes: [{code, name, scope?}] } - replace code with name
-          // scope can be string or array of strings
+          // Codes format: { codes: [{code, name, scope?}] }
           validReplacements = data.codes
             .filter(r => r && r.code && r.name)
             .map(r => {
               let scope = '';
               if (Array.isArray(r.scope)) {
-                scope = r.scope.join(', ');  // Convert array to comma-separated
+                scope = r.scope.join(', ');
               } else if (r.scope) {
                 scope = r.scope;
               }
               return {
                 textToReplace: r.code,
                 replacementText: r.name,
-                scope: scope
+                scope: scope,
+                wholeWord: r.wholeWord || false,
+                enabled: true
               };
             });
         } else if (Array.isArray(data)) {
@@ -341,9 +413,21 @@ function importReplacements(file) {
             return false;
           }).map(r => {
             if (r.textToReplace) {
-              return { textToReplace: r.textToReplace, replacementText: r.replacementText, scope: r.scope || '' };
+              return { 
+                textToReplace: r.textToReplace, 
+                replacementText: r.replacementText, 
+                scope: r.scope || '',
+                wholeWord: r.wholeWord || false,
+                enabled: r.enabled !== false
+              };
             } else {
-              return { textToReplace: r.code, replacementText: r.name, scope: '' };
+              return { 
+                textToReplace: r.code, 
+                replacementText: r.name, 
+                scope: '',
+                wholeWord: false,
+                enabled: true
+              };
             }
           });
         } else {
@@ -392,6 +476,18 @@ function importReplacements(file) {
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   loadReplacements();
+  
+  // Global toggle handler
+  document.getElementById('globalToggle').addEventListener('change', (e) => {
+    globalEnabled = e.target.checked;
+    saveReplacements();
+  });
+  
+  // Search input handler
+  document.getElementById('searchInput').addEventListener('input', (e) => {
+    searchTerm = e.target.value.trim();
+    renderReplacements();
+  });
   
   // Add button click handler
   document.getElementById('addReplacementBtn').addEventListener('click', () => {
