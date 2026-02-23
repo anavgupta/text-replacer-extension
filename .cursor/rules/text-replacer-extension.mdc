@@ -1,0 +1,105 @@
+---
+description: Rules for the Text Replacer Chrome/Edge extension — architecture, common pitfalls, and testing patterns learned during development.
+globs:
+  - "*.js"
+  - "*.html"
+  - "*.css"
+  - "manifest.json"
+  - "tests/**"
+---
+
+# Text Replacer Extension — Project Rules
+
+## Architecture
+
+This is a Manifest V3 Chrome/Edge extension with four main components:
+
+- **content.js** — Injected into every page. Walks the DOM (`Node.TEXT_NODE`), applies replacements, and re-runs via `MutationObserver` on dynamic content.
+- **popup.js / popup.html / popup.css** — The extension popup UI. Table-based list of rules, modal for add/edit, search bar, global toggle, import/export.
+- **background.js** — Service worker. Manages badge count, handles the keyboard shortcut (`Ctrl+Shift+R`), broadcasts toggle messages to all tabs.
+- **manifest.json** — Declares permissions (`storage`, `activeTab`), content scripts, commands, and icons.
+
+Communication flow: popup ↔ storage ↔ content script, popup → background (badge), background → tabs (global toggle broadcast).
+
+## Critical Regex Pitfalls
+
+### 1. Never use `regex.test()` then `regex.replace()` on the same global regex
+
+`test()` with a `/g` flag advances `lastIndex`. A subsequent `replace()` starts from that position and misses the first match. Always use `replace()` directly and compare the result:
+
+```js
+// WRONG — skips first match
+if (regex.test(text)) { text = text.replace(regex, replacement); }
+
+// CORRECT
+const newText = text.replace(regex, replacementText);
+if (newText !== text) { text = newText; modified = true; }
+```
+
+### 2. `\b` word boundary does NOT work with special characters
+
+`\b` sits between `\w` ([a-zA-Z0-9_]) and `\W`. For search terms containing `$`, `(`, `.`, `+`, etc., `\b` silently fails to match.
+
+**Solution:** Detect special chars and use whitespace-based lookaround instead:
+
+```js
+const hasSpecialChars = /[^a-zA-Z0-9_]/.test(textToReplace);
+if (hasSpecialChars) {
+  pattern = `(?<=^|[\\s])${escapedText}(?=[\\s]|$)`;
+} else {
+  pattern = `\\b${escapedText}\\b`;
+}
+```
+
+### 3. Always escape user input before building regex
+
+```js
+const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+```
+
+## Scope Matching
+
+- Empty/null/whitespace scope → match all pages.
+- Wildcard `*` is converted to `.*` for regex. Test against both `hostname` and full URL.
+- Multiple scopes are comma-separated. Any single match = pass.
+- **Trailing slash matters:** `*/view/*` requires content after `/view/`. Use `*/view*` for flexible matching (matches `/view`, `/view/`, `/view?q=1`).
+
+## Storage
+
+- `chrome.storage.sync` can silently fail in Edge without a Microsoft account. If Edge support is critical, use `chrome.storage.local` or add fallback.
+- Always check `chrome.runtime.lastError` after storage operations.
+- Replacement objects have this shape: `{ textToReplace, replacementText, scope, wholeWord, enabled }`.
+- `globalEnabled` is stored alongside `replacements` in the same storage area.
+
+## Import/Export
+
+The import function must handle three JSON formats:
+1. `{ replacements: [...] }` — standard backup
+2. `{ codes: [{ code, name, scope }] }` — codes format (scope can be a string OR array)
+3. `[...]` — plain array (either format of objects)
+
+When `scope` is an array, join with `", "` for internal storage.
+
+CSV uses 5 columns: `textToReplace,replacementText,scope,wholeWord,enabled`. Fields with commas/quotes/newlines must be quoted with doubled internal quotes.
+
+## Testing Strategy
+
+Browser APIs (`chrome.storage`, `chrome.tabs`, DOM) cannot be unit-tested in Node.js. Instead:
+
+1. Extract pure logic into testable functions: `matchesScope`, `applyReplacement`, `filterActiveReplacements`, `searchFilter`, `computeBadgeCount`, `escapeCsvField`, `parseCsvLine`.
+2. Copy those functions into `tests/test-all.js` and test with Node.js assertions.
+3. Validate file structure (manifest references, required elements in HTML) via `fs` checks.
+4. Run with `node tests/test-all.js`.
+
+When adding new logic to any source file, also add the corresponding pure function + tests to the test file.
+
+## Badge
+
+- Active count > 0 → green (`#4caf50`) badge with the number.
+- Global OFF → red (`#f44336`) badge with text "OFF".
+- No active replacements → empty badge (hidden).
+
+## Files to Never Commit
+
+- `data/*.local.json` — user-specific data (in `.gitignore`).
+- `data/codes.json` committed as a template with example placeholder data only.
