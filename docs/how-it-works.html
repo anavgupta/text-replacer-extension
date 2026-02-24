@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <!-- DOC-SYNC
   sources: content.js, popup.js, popup.html, popup.css, background.js, manifest.json
-  generated: 2026-02-24T14:14:28.097Z
-  source-hash: 80a69a0cdc5b10031a5922302e48f30bdf45f72ec8a05a14c69da57b953c462f
+  generated: 2026-02-24T18:13:53.808Z
+  source-hash: 7df7bc23b3cf0c6ca0f8e41763eaf8b308f7b263e5bf74f451aa45585c2cad78
 -->
 <html lang="en">
 <head>
@@ -173,7 +173,7 @@
 <!-- NAV -->
 <nav>
   <div class="nav-inner">
-    <span class="nav-logo">TR</span>
+    <span class="nav-logo">RT</span>
     <a href="#architecture">Architecture</a>
     <a href="#dom-traversal">DOM Traversal</a>
     <a href="#scope-matching">Scope Matching</a>
@@ -193,9 +193,9 @@
   <p>An interactive deep-dive into the architecture, patterns, and hard-won lessons behind a Manifest V3 browser extension.</p>
   <div class="hero-stats">
     <div class="hero-stat"><div class="num">6</div><div class="lbl">Source Files</div></div>
-    <div class="hero-stat"><div class="num">~1400</div><div class="lbl">Lines of Code</div></div>
-    <div class="hero-stat"><div class="num">186</div><div class="lbl">Tests Passing</div></div>
-    <div class="hero-stat"><div class="num">10</div><div class="lbl">Features</div></div>
+    <div class="hero-stat"><div class="num">~1600</div><div class="lbl">Lines of Code</div></div>
+    <div class="hero-stat"><div class="num">252</div><div class="lbl">Tests Passing</div></div>
+    <div class="hero-stat"><div class="num">18</div><div class="lbl">Features</div></div>
   </div>
 </div>
 
@@ -223,23 +223,23 @@
     </div>
     <div class="arch-card card-popup">
       <h3>Popup UI</h3>
-      <div class="card-file">popup.html + popup.js + popup.css &middot; ~650 lines</div>
+      <div class="card-file">popup.html + popup.js + popup.css &middot; ~1300 lines</div>
       <ul>
         <li>Appears when user clicks extension icon</li>
         <li>CRUD for replacement rules</li>
-        <li>Search, filter, toggle controls</li>
+        <li>Search, filter, toggle, dark mode</li>
         <li>Import/Export (JSON, CSV)</li>
-        <li>Lives only while popup is open</li>
+        <li>Toast notifications with undo</li>
       </ul>
     </div>
     <div class="arch-card card-bg">
       <h3>Background Worker</h3>
-      <div class="card-file">background.js &middot; 91 lines</div>
+      <div class="card-file">background.js &middot; 66 lines</div>
       <ul>
         <li>Service worker (no persistent page)</li>
         <li>Manages badge count and colors</li>
-        <li>Handles keyboard shortcut (Ctrl+Shift+R)</li>
         <li>Context menu "Create rule from selection"</li>
+        <li>Listens to storage changes</li>
         <li>Broadcasts toggle to all tabs</li>
       </ul>
     </div>
@@ -274,10 +274,7 @@
 <span class="hl">    <span class="str">"run_at"</span>: <span class="str">"document_end"</span>,     <span class="cm">// After DOM is built</span></span>
 <span class="hl">    <span class="str">"all_frames"</span>: <span class="kw">true</span>            <span class="cm">// Runs in iframes too</span></span>
   }],
-  <span class="str">"background"</span>: { <span class="str">"service_worker"</span>: <span class="str">"background.js"</span> },
-  <span class="str">"commands"</span>: {
-    <span class="str">"toggle-extension"</span>: { <span class="str">"suggested_key"</span>: { <span class="str">"default"</span>: <span class="str">"Ctrl+Shift+R"</span> } }
-  }
+  <span class="str">"background"</span>: { <span class="str">"service_worker"</span>: <span class="str">"background.js"</span> }
 }</div>
   </div>
 </section>
@@ -481,8 +478,8 @@
       <p><code>chrome.storage.onChanged</code> triggers <code>performReplacements()</code></p>
     </div>
     <div class="timeline-item tl-purple">
-      <h4>Keyboard shortcut (Ctrl+Shift+R)</h4>
-      <p>Background toggles state, updates badge, broadcasts <code>toggleGlobal</code> to all tabs</p>
+      <h4>Context menu: "Create replacement for ..."</h4>
+      <p>Background stores selected text via <code>_pendingRuleText</code>, popup reads it on open and pre-fills the modal</p>
     </div>
   </div>
 </section>
@@ -509,12 +506,15 @@
     <h4>Data shape in storage</h4>
     <div class="code-body" style="background: var(--bg); border-radius: 8px; padding: 14px; margin: 0; font-size: 0.8rem;">{
   <span class="str">"globalEnabled"</span>: <span class="kw">true</span>,
+  <span class="str">"darkMode"</span>: <span class="kw">false</span>,
   <span class="str">"replacements"</span>: [
     {
       <span class="str">"textToReplace"</span>: <span class="str">"8601"</span>,
       <span class="str">"replacementText"</span>: <span class="str">"On QS Load"</span>,
       <span class="str">"scope"</span>: <span class="str">"*/Histories/view*"</span>,
+      <span class="str">"group"</span>: <span class="str">"Salesforce"</span>,
       <span class="str">"wholeWord"</span>: <span class="kw">true</span>,
+      <span class="str">"isRegex"</span>: <span class="kw">false</span>,
       <span class="str">"enabled"</span>: <span class="kw">true</span>
     }
   ]
@@ -625,18 +625,22 @@
     <tbody>
       <tr><td>Text replacement on all pages</td><td><span class="badge-feat badge-core">Core</span></td><td>content.js</td><td>Recursive DOM walk on TEXT_NODE</td></tr>
       <tr><td>URL scope filtering (wildcards)</td><td><span class="badge-feat badge-core">Core</span></td><td>content.js</td><td>* &rarr; .* regex conversion</td></tr>
+      <tr><td>Whole-word matching</td><td><span class="badge-feat badge-core">Core</span></td><td>content.js</td><td>\b vs lookaround strategy</td></tr>
+      <tr><td>Regex mode</td><td><span class="badge-feat badge-core">Core</span></td><td>content.js, popup.js</td><td>User-supplied regex with validation</td></tr>
       <tr><td>Dynamic content (MutationObserver)</td><td><span class="badge-feat badge-perf">Perf</span></td><td>content.js</td><td>Debounced observer at 150ms</td></tr>
       <tr><td>Skip script/style/textarea tags</td><td><span class="badge-feat badge-perf">Perf</span></td><td>content.js</td><td>SKIP_TAGS Set check</td></tr>
+      <tr><td>Storage sync &rarr; local fallback</td><td><span class="badge-feat badge-perf">Perf</span></td><td>content + background</td><td>getStorage() helper</td></tr>
       <tr><td>Global on/off toggle</td><td><span class="badge-feat badge-ux">UX</span></td><td>popup + background + content</td><td>Storage + message broadcast</td></tr>
       <tr><td>Per-rule enable/disable</td><td><span class="badge-feat badge-ux">UX</span></td><td>popup.js, content.js</td><td>enabled property filter</td></tr>
-      <tr><td>Whole-word matching</td><td><span class="badge-feat badge-core">Core</span></td><td>content.js</td><td>\b vs lookaround strategy</td></tr>
       <tr><td>Search/filter in popup</td><td><span class="badge-feat badge-ux">UX</span></td><td>popup.js</td><td>Case-insensitive substring match</td></tr>
+      <tr><td>Rule groups</td><td><span class="badge-feat badge-ux">UX</span></td><td>popup.js, popup.html</td><td>group field + datalist suggestions</td></tr>
       <tr><td>Badge count on icon</td><td><span class="badge-feat badge-ux">UX</span></td><td>background.js</td><td>setBadgeText + color coding</td></tr>
-      <tr><td>Keyboard shortcut (Ctrl+Shift+R)</td><td><span class="badge-feat badge-ux">UX</span></td><td>manifest + background</td><td>chrome.commands API</td></tr>
+      <tr><td>Context menu rule creation</td><td><span class="badge-feat badge-ux">UX</span></td><td>background.js</td><td>chrome.contextMenus API</td></tr>
+      <tr><td>Dark mode toggle</td><td><span class="badge-feat badge-ux">UX</span></td><td>popup.js, popup.css</td><td>:root.dark CSS vars + storage pref</td></tr>
+      <tr><td>Toast notifications with undo</td><td><span class="badge-feat badge-ux">UX</span></td><td>popup.js, popup.css</td><td>Non-blocking toasts, undo on delete</td></tr>
+      <tr><td>Accessibility (ARIA)</td><td><span class="badge-feat badge-ux">UX</span></td><td>popup.html, popup.css</td><td>role, aria-modal, labels, focus-visible</td></tr>
       <tr><td>Import (JSON x3 formats + CSV)</td><td><span class="badge-feat badge-data">Data</span></td><td>popup.js</td><td>FileReader + format detection</td></tr>
       <tr><td>Export (JSON + CSV)</td><td><span class="badge-feat badge-data">Data</span></td><td>popup.js</td><td>Blob + createObjectURL</td></tr>
-      <tr><td>Context menu rule creation</td><td><span class="badge-feat badge-ux">UX</span></td><td>background.js</td><td>chrome.contextMenus API</td></tr>
-      <tr><td>Storage sync &rarr; local fallback</td><td><span class="badge-feat badge-perf">Perf</span></td><td>content + background</td><td>getStorage() helper</td></tr>
     </tbody>
   </table>
 </section>
@@ -644,7 +648,7 @@
 </div>
 
 <footer>
-  Built by Anav Gupta &middot; <a href="https://github.com/anavgupta/text-replacer-extension">GitHub</a> &middot; 186 tests passing
+  Built by Anav Gupta &middot; <a href="https://github.com/anavgupta/text-replacer-extension">GitHub</a> &middot; 252 tests passing
 </footer>
 
 <script>

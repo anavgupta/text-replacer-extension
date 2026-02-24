@@ -25,7 +25,7 @@ const SOURCE_FILES = [
   'manifest.json'
 ];
 
-const SYNC_REGEX = /<!-- DOC-SYNC\n([\s\S]*?)-->/;
+const SYNC_REGEX = /<!-- DOC-SYNC\r?\n([\s\S]*?)-->/;
 const HASH_REGEX = /source-hash:\s*([a-f0-9]+)/;
 
 function hashSources() {
