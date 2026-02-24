@@ -14,6 +14,28 @@ function getStorage() {
   return chrome.storage.local;
 }
 
+// --- Dark mode ---
+
+function loadTheme() {
+  getStorage().get(['darkMode'], (result) => {
+    const isDark = result.darkMode === true;
+    applyTheme(isDark);
+  });
+}
+
+function applyTheme(isDark) {
+  document.documentElement.classList.toggle('dark', isDark);
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = isDark ? '☀️' : '🌙';
+}
+
+function toggleTheme() {
+  const isDark = document.documentElement.classList.contains('dark');
+  const newMode = !isDark;
+  applyTheme(newMode);
+  getStorage().set({ darkMode: newMode });
+}
+
 // --- Toast notifications ---
 
 function showToast(message, type = 'info', duration = 3000, actionLabel, actionCallback) {
@@ -485,6 +507,7 @@ function importReplacements(file) {
 // --- Initialize ---
 
 document.addEventListener('DOMContentLoaded', () => {
+  loadTheme();
   loadReplacements();
 
   document.getElementById('globalToggle').addEventListener('change', (e) => {
@@ -497,6 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderReplacements();
   });
 
+  document.getElementById('themeToggle').addEventListener('click', toggleTheme);
   document.getElementById('addReplacementBtn').addEventListener('click', () => openModal());
 
   document.getElementById('closeModal').addEventListener('click', closeModal);

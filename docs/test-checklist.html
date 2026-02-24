@@ -155,10 +155,10 @@ const TESTS = [
     section: "F12 — Skip Script/Style/Textarea Nodes",
     id: "f12",
     tests: [
-      { id: "F12-01", name: "Text inside <script> tags is NOT replaced", steps: ["Create a rule: find 'function', replace 'FUNC'", "Visit a page with visible text 'function' AND script tags containing 'function'", "Verify only visible text is replaced, page JS still works"] },
-      { id: "F12-02", name: "Text inside <style> tags is NOT replaced", steps: ["Create a rule: find 'color', replace 'COLOR'", "Visit a page with inline <style> blocks", "Verify page styling is not broken"] },
-      { id: "F12-03", name: "Text inside <textarea> is NOT replaced", steps: ["Create a rule: find 'hello', replace 'world'", "Visit a page with a textarea containing 'hello'", "Verify textarea content is unchanged, but other 'hello' text is replaced"] },
-      { id: "F12-04", name: "Text inside <code>/<pre> is NOT replaced", steps: ["Visit a page with code blocks (e.g., GitHub, docs)", "Create a replacement rule for a common word", "Verify code blocks are untouched"] },
+      { id: "F12-01", name: "Text inside &lt;script&gt; tags is NOT replaced", steps: ["Create a rule: find 'function', replace 'FUNC'", "Visit a page with visible text 'function' AND script tags containing 'function'", "Verify only visible text is replaced, page JS still works"] },
+      { id: "F12-02", name: "Text inside &lt;style&gt; tags is NOT replaced", steps: ["Create a rule: find 'color', replace 'COLOR'", "Visit a page with inline &lt;style&gt; blocks", "Verify page styling is not broken"] },
+      { id: "F12-03", name: "Text inside &lt;textarea&gt; is NOT replaced", steps: ["Create a rule: find 'hello', replace 'world'", "Visit a page with a textarea containing 'hello'", "Verify textarea content is unchanged, but other 'hello' text is replaced"] },
+      { id: "F12-04", name: "Text inside &lt;code&gt;/&lt;pre&gt; is NOT replaced", steps: ["Visit a page with code blocks (e.g., GitHub, docs)", "Create a replacement rule for a common word", "Verify code blocks are untouched"] },
     ]
   },
   {
@@ -232,11 +232,15 @@ const TESTS = [
     ]
   },
   {
-    section: "TD7 — CSS Variables / Dark Mode Prep",
+    section: "TD7 — CSS Variables / Dark Mode",
     id: "td7",
     tests: [
       { id: "TD7-01", name: "Popup UI looks correct with consistent colors", steps: ["Open the popup", "Verify colors are consistent (teal/blue accents, white cards, gray borders)", "No mismatched hardcoded colors"] },
       { id: "TD7-02", name: "CSS variables exist in :root (inspect with DevTools)", steps: ["Inspect the popup page", "Check popup.css has :root { --color-primary, --color-bg, --color-text, etc. }", "Verify elements use var(--...) instead of hardcoded hex"] },
+      { id: "TD7-03", name: "Dark mode toggle button visible in popup header", steps: ["Open the popup", "Verify a moon icon (🌙) button appears in the header near the global toggle", "Click it to enable dark mode"] },
+      { id: "TD7-04", name: "Dark mode switches all colors correctly", steps: ["Click the moon icon to enable dark mode", "Verify background becomes dark, text becomes light", "Verify table, modal, buttons, and toasts all use dark colors", "Verify no broken/invisible elements"] },
+      { id: "TD7-05", name: "Dark mode preference persists", steps: ["Enable dark mode, close popup", "Reopen popup", "Verify dark mode is still active"] },
+      { id: "TD7-06", name: "Light mode can be restored", steps: ["In dark mode, click the sun icon (☀️)", "Verify UI returns to light theme", "Close and reopen popup — verify light mode persists"] },
     ]
   },
   {
@@ -264,7 +268,7 @@ const TESTS = [
       { id: "REG-04", name: "Global toggle disables all replacements", steps: ["Turn off the global toggle", "Verify badge shows 'OFF'", "Visit a page — verify no replacements happen", "Turn back on — verify replacements resume"] },
       { id: "REG-05", name: "Per-rule toggle works", steps: ["Disable one rule via its checkbox", "Verify that rule no longer applies", "Verify other enabled rules still work"] },
       { id: "REG-06", name: "Search/filter narrows the list", steps: ["Add multiple rules", "Type in the search box", "Verify only matching rules are shown"] },
-      { id: "REG-07", name: "Keyboard shortcut Ctrl+Shift+R toggles extension", steps: ["Press Ctrl+Shift+R", "Verify badge shows 'OFF'", "Press again — verify badge returns to count"] },
+      { id: "REG-07", name: "Keyboard shortcut Alt+Shift+R toggles extension", steps: ["Press Alt+Shift+R", "Verify badge shows 'OFF'", "Press again — verify badge returns to count"] },
       { id: "REG-08", name: "Import JSON works", steps: ["Export rules as JSON", "Delete all rules", "Import the exported JSON", "Verify rules are restored"] },
       { id: "REG-09", name: "Import CSV works", steps: ["Export rules as CSV", "Delete all rules", "Import the exported CSV", "Verify rules are restored"] },
       { id: "REG-10", name: "Badge count updates correctly", steps: ["Add 3 enabled rules", "Verify badge shows '3'", "Disable one — verify badge shows '2'", "Turn global off — verify badge shows 'OFF'"] },

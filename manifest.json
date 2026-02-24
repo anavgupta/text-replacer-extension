@@ -38,8 +38,8 @@
   "commands": {
     "toggle-extension": {
       "suggested_key": {
-        "default": "Ctrl+Shift+R",
-        "mac": "Command+Shift+R"
+        "default": "Alt+Shift+R",
+        "mac": "MacCtrl+Shift+R"
       },
       "description": "Toggle ReText on/off"
     }

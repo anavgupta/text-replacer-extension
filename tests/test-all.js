@@ -543,7 +543,7 @@ assertEqual(manifest.action.default_popup, 'popup.html', 'Popup declared');
 assertEqual(manifest.background.service_worker, 'background.js', 'Background worker declared');
 assert(manifest.commands !== undefined, 'Commands section exists');
 assert(manifest.commands['toggle-extension'] !== undefined, 'Toggle command exists');
-assertEqual(manifest.commands['toggle-extension'].suggested_key.default, 'Ctrl+Shift+R', 'Shortcut is Ctrl+Shift+R');
+assertEqual(manifest.commands['toggle-extension'].suggested_key.default, 'Alt+Shift+R', 'Shortcut is Alt+Shift+R');
 
 // Check all referenced files exist
 const extDir = path.join(__dirname, '..');
