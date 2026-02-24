@@ -1,43 +1,161 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Generate Extension Icons</title>
+    <title>ReText Icon Generator</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 40px; background: #f5f5f5; }
+        .preview { display: flex; gap: 40px; align-items: end; margin: 30px 0; }
+        .preview-item { text-align: center; }
+        .preview-item canvas { border: 1px solid #ddd; border-radius: 8px; background: white; }
+        .preview-item p { margin-top: 8px; font-size: 13px; color: #666; }
+        button { padding: 10px 24px; background: #0097a7; color: white; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; margin: 4px; }
+        button:hover { background: #00838f; }
+        h1 { color: #333; }
+    </style>
 </head>
 <body>
-    <h1>Extension Icon Generator</h1>
-    <p>Click the buttons below to generate and download the icon files.</p>
-    
-    <canvas id="canvas16" width="16" height="16" style="border: 1px solid #ccc; margin: 10px;"></canvas>
-    <button onclick="downloadIcon(16)">Download icon16.png</button><br><br>
-    
-    <canvas id="canvas48" width="48" height="48" style="border: 1px solid #ccc; margin: 10px;"></canvas>
-    <button onclick="downloadIcon(48)">Download icon48.png</button><br><br>
-    
-    <canvas id="canvas128" width="128" height="128" style="border: 1px solid #ccc; margin: 10px;"></canvas>
-    <button onclick="downloadIcon(128)">Download icon128.png</button>
-    
+    <h1>ReText - Icon Generator</h1>
+    <p>A-to-B arrow logo on a teal gradient rounded square.</p>
+
+    <div class="preview">
+        <div class="preview-item">
+            <canvas id="canvas128" width="128" height="128"></canvas>
+            <p>128 &times; 128</p>
+            <button onclick="downloadIcon(128)">Download</button>
+        </div>
+        <div class="preview-item">
+            <canvas id="canvas48" width="48" height="48"></canvas>
+            <p>48 &times; 48</p>
+            <button onclick="downloadIcon(48)">Download</button>
+        </div>
+        <div class="preview-item">
+            <canvas id="canvas16" width="16" height="16"></canvas>
+            <p>16 &times; 16</p>
+            <button onclick="downloadIcon(16)">Download</button>
+        </div>
+    </div>
+
+    <button onclick="downloadAll()">Download All</button>
+
     <script>
         function drawIcon(canvas, size) {
             const ctx = canvas.getContext('2d');
-            
-            // Draw blue circle background
-            ctx.fillStyle = '#4a90e2';
+            const s = size;
+            const r = s * 0.18; // corner radius
+
+            // Rounded rectangle background with teal gradient
+            const grad = ctx.createLinearGradient(0, 0, s, s);
+            grad.addColorStop(0, '#00897b');   // teal 600
+            grad.addColorStop(1, '#0097a7');   // cyan 700
+
             ctx.beginPath();
-            ctx.arc(size/2, size/2, size/2 - 2, 0, 2 * Math.PI);
+            ctx.moveTo(r, 0);
+            ctx.lineTo(s - r, 0);
+            ctx.quadraticCurveTo(s, 0, s, r);
+            ctx.lineTo(s, s - r);
+            ctx.quadraticCurveTo(s, s, s - r, s);
+            ctx.lineTo(r, s);
+            ctx.quadraticCurveTo(0, s, 0, s - r);
+            ctx.lineTo(0, r);
+            ctx.quadraticCurveTo(0, 0, r, 0);
+            ctx.closePath();
+            ctx.fillStyle = grad;
             ctx.fill();
-            
-            // Draw "T" letter in white
+
+            // Subtle inner shadow
+            ctx.save();
+            ctx.clip();
+            ctx.fillStyle = 'rgba(0,0,0,0.08)';
+            ctx.fillRect(0, s * 0.7, s, s * 0.3);
+            ctx.restore();
+
             ctx.fillStyle = 'white';
-            ctx.font = `bold ${size * 0.6}px Arial`;
-            ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('T', size/2, size/2);
+
+            if (size >= 48) {
+                // Full A → B layout
+                const letterSize = s * 0.32;
+                const arrowY = s * 0.5;
+
+                // "A" with strikethrough
+                ctx.font = `bold ${letterSize}px "Segoe UI", Arial, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.globalAlpha = 0.65;
+                ctx.fillText('A', s * 0.22, arrowY);
+
+                // Strikethrough on A
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = Math.max(1.5, s * 0.02);
+                ctx.globalAlpha = 0.7;
+                const aMetrics = ctx.measureText('A');
+                const aLeft = s * 0.22 - aMetrics.width / 2 - s * 0.01;
+                const aRight = s * 0.22 + aMetrics.width / 2 + s * 0.01;
+                ctx.beginPath();
+                ctx.moveTo(aLeft, arrowY);
+                ctx.lineTo(aRight, arrowY);
+                ctx.stroke();
+
+                // Arrow in the middle
+                ctx.globalAlpha = 0.9;
+                const arrowLeft = s * 0.38;
+                const arrowRight = s * 0.62;
+                const arrowHeadSize = s * 0.06;
+                ctx.lineWidth = Math.max(2, s * 0.025);
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.strokeStyle = 'white';
+                ctx.beginPath();
+                ctx.moveTo(arrowLeft, arrowY);
+                ctx.lineTo(arrowRight, arrowY);
+                ctx.stroke();
+                // Arrowhead
+                ctx.beginPath();
+                ctx.moveTo(arrowRight - arrowHeadSize, arrowY - arrowHeadSize);
+                ctx.lineTo(arrowRight, arrowY);
+                ctx.lineTo(arrowRight - arrowHeadSize, arrowY + arrowHeadSize);
+                ctx.stroke();
+
+                // "B" bold
+                ctx.globalAlpha = 1.0;
+                ctx.font = `bold ${letterSize}px "Segoe UI", Arial, sans-serif`;
+                ctx.fillText('B', s * 0.78, arrowY);
+
+            } else {
+                // 16px: simplified -- just arrow symbol
+                ctx.globalAlpha = 1.0;
+                const cy = s / 2;
+                const arrowLeft = s * 0.2;
+                const arrowRight = s * 0.8;
+                const headSize = s * 0.2;
+                ctx.lineWidth = Math.max(1.5, s * 0.1);
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.strokeStyle = 'white';
+                // Shaft
+                ctx.beginPath();
+                ctx.moveTo(arrowLeft, cy);
+                ctx.lineTo(arrowRight, cy);
+                ctx.stroke();
+                // Head
+                ctx.beginPath();
+                ctx.moveTo(arrowRight - headSize, cy - headSize);
+                ctx.lineTo(arrowRight, cy);
+                ctx.lineTo(arrowRight - headSize, cy + headSize);
+                ctx.stroke();
+                // Small "A" top-left hint
+                ctx.font = `bold ${s * 0.35}px Arial`;
+                ctx.textAlign = 'left';
+                ctx.globalAlpha = 0.6;
+                ctx.fillText('A', s * 0.02, s * 0.28);
+                // Small "B" bottom-right hint
+                ctx.globalAlpha = 1.0;
+                ctx.textAlign = 'right';
+                ctx.fillText('B', s * 0.98, s * 0.82);
+            }
         }
-        
+
         function downloadIcon(size) {
             const canvas = document.getElementById(`canvas${size}`);
-            drawIcon(canvas, size);
-            
             canvas.toBlob(function(blob) {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -49,12 +167,15 @@
                 URL.revokeObjectURL(url);
             });
         }
-        
-        // Draw previews
+
+        function downloadAll() {
+            [16, 48, 128].forEach(size => downloadIcon(size));
+        }
+
         window.onload = function() {
-            drawIcon(document.getElementById('canvas16'), 16);
-            drawIcon(document.getElementById('canvas48'), 48);
-            drawIcon(document.getElementById('canvas128'), 128);
+            [16, 48, 128].forEach(size => {
+                drawIcon(document.getElementById(`canvas${size}`), size);
+            });
         };
     </script>
 </body>

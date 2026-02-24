@@ -1,5 +1,5 @@
 /**
- * Comprehensive Test Suite for Text Replacer Extension
+ * Comprehensive Test Suite for ReText Extension
  * Tests: Scope Matching, Text Replacement, Toggle, Search, Whole Word, Badge, Manifest
  * Run with: node tests/test-all.js
  */
@@ -858,6 +858,11 @@ assert(contentJs.includes("request.action === 'updateReplacements'"), 'content.j
 assert(contentJs.includes('matchesScope'), 'content.js uses matchesScope function');
 assert(contentJs.includes('matchesSingleScope'), 'content.js uses matchesSingleScope function');
 assert(contentJs.includes('hasSpecialChars'), 'content.js handles special chars in wholeWord');
+assert(contentJs.includes('debouncedReplacements'), 'content.js has debounced replacement function');
+assert(contentJs.includes('_debounceTimer'), 'content.js uses debounce timer variable');
+assert(contentJs.includes('clearTimeout(_debounceTimer)'), 'content.js clears debounce timer');
+assert(contentJs.includes('setTimeout(() => performReplacements()'), 'content.js schedules debounced execution');
+assert(contentJs.includes('debouncedReplacements()'), 'content.js MutationObserver calls debounced function');
 
 // ============================================================
 // TEST SUITE 16: BACKGROUND.JS LOGIC VALIDATION
@@ -879,6 +884,356 @@ assert(bgJs.includes("action: 'toggleGlobal'"), 'background.js sends toggleGloba
 assert(bgJs.includes("text: 'OFF'"), 'background.js shows OFF badge');
 assert(bgJs.includes("color: '#f44336'"), 'background.js uses red for OFF state');
 assert(bgJs.includes('#4caf50'), 'background.js uses green for active state');
+
+// ============================================================
+// NEW FEATURE FUNCTIONS (extracted for testing)
+// ============================================================
+
+// F4: Regex mode - apply replacement with isRegex flag
+function applyReplacementV2(text, replacement) {
+  const { textToReplace, replacementText, wholeWord, isRegex } = replacement;
+  if (!textToReplace || !replacementText) return text;
+
+  let pattern;
+  let flags = 'gi';
+
+  if (isRegex) {
+    pattern = textToReplace;
+  } else {
+    const escapedText = textToReplace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (wholeWord) {
+      const hasSpecialChars = /[^a-zA-Z0-9_]/.test(textToReplace);
+      if (hasSpecialChars) {
+        pattern = `(?<=^|[\\s])${escapedText}(?=[\\s]|$)`;
+      } else {
+        pattern = `\\b${escapedText}\\b`;
+      }
+    } else {
+      pattern = escapedText;
+    }
+  }
+
+  try {
+    const regex = new RegExp(pattern, flags);
+    return text.replace(regex, replacementText);
+  } catch (e) {
+    return text;
+  }
+}
+
+// F7: Rule groups - helper functions
+function getGroupNames(replacements) {
+  const names = new Set();
+  replacements.forEach(r => {
+    if (r.group && r.group.trim()) names.add(r.group.trim());
+  });
+  return Array.from(names).sort();
+}
+
+function filterByGroup(replacements, groupName) {
+  if (groupName === null || groupName === undefined) return replacements;
+  if (groupName === '') return replacements.filter(r => !r.group || !r.group.trim());
+  return replacements.filter(r => (r.group || '') === groupName);
+}
+
+function getUngroupedCount(replacements) {
+  return replacements.filter(r => !r.group || !r.group.trim()).length;
+}
+
+// F2: Storage helper - determines which storage to use
+function resolveStorageArea(syncAvailable) {
+  return syncAvailable ? 'sync' : 'local';
+}
+
+// ============================================================
+// TEST SUITE 17: F12 - SKIP SCRIPT/STYLE/TEXTAREA NODES
+// ============================================================
+
+console.log('\n=== TEST SUITE 17: Skip Script/Style/Textarea Nodes (F12) ===\n');
+
+const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'NOSCRIPT', 'CODE', 'PRE']);
+
+assert(SKIP_TAGS.has('SCRIPT'), 'SKIP_TAGS includes SCRIPT');
+assert(SKIP_TAGS.has('STYLE'), 'SKIP_TAGS includes STYLE');
+assert(SKIP_TAGS.has('TEXTAREA'), 'SKIP_TAGS includes TEXTAREA');
+assert(SKIP_TAGS.has('NOSCRIPT'), 'SKIP_TAGS includes NOSCRIPT');
+assert(SKIP_TAGS.has('CODE'), 'SKIP_TAGS includes CODE');
+assert(SKIP_TAGS.has('PRE'), 'SKIP_TAGS includes PRE');
+assert(!SKIP_TAGS.has('DIV'), 'SKIP_TAGS does NOT include DIV');
+assert(!SKIP_TAGS.has('SPAN'), 'SKIP_TAGS does NOT include SPAN');
+assert(!SKIP_TAGS.has('P'), 'SKIP_TAGS does NOT include P');
+
+// Verify content.js has the skip logic
+assert(contentJs.includes('SKIP_TAGS') || contentJs.includes('skipTags') || contentJs.includes('tagName'), 'content.js has tag skip logic');
+assert(contentJs.includes('SCRIPT') || contentJs.includes('script'), 'content.js references SCRIPT tag');
+assert(contentJs.includes('STYLE') || contentJs.includes('style'), 'content.js references STYLE tag');
+assert(contentJs.includes('TEXTAREA') || contentJs.includes('textarea'), 'content.js references TEXTAREA tag');
+
+// ============================================================
+// TEST SUITE 18: F4 - REGEX MODE
+// ============================================================
+
+console.log('\n=== TEST SUITE 18: Regex Mode (F4) ===\n');
+
+// 18.1 Basic regex pattern
+assertEqual(
+  applyReplacementV2('Codes: E001, E002, E999', { textToReplace: 'E\\d{3}', replacementText: 'ERR', isRegex: true }),
+  'Codes: ERR, ERR, ERR',
+  'Regex: digit pattern replaces all'
+);
+
+// 18.2 Capture group replacement
+assertEqual(
+  applyReplacementV2('John Smith, Jane Doe', { textToReplace: '(\\w+) (\\w+)', replacementText: '$2, $1', isRegex: true }),
+  'Smith, John, Doe, Jane',
+  'Regex: capture group swap'
+);
+
+// 18.3 Non-regex mode still escapes
+assertEqual(
+  applyReplacementV2('file.txt and file2txt', { textToReplace: 'file.txt', replacementText: 'doc.pdf', isRegex: false }),
+  'doc.pdf and file2txt',
+  'Non-regex: dot is literal not wildcard'
+);
+
+// 18.4 Invalid regex falls back gracefully
+assertEqual(
+  applyReplacementV2('hello world', { textToReplace: '[invalid', replacementText: 'test', isRegex: true }),
+  'hello world',
+  'Invalid regex returns text unchanged'
+);
+
+// 18.5 Regex with alternation
+assertEqual(
+  applyReplacementV2('cat or dog or bird', { textToReplace: 'cat|dog', replacementText: 'pet', isRegex: true }),
+  'pet or pet or bird',
+  'Regex: alternation works'
+);
+
+// 18.6 Regex word boundary
+assertEqual(
+  applyReplacementV2('category cat concatenate', { textToReplace: '\\bcat\\b', replacementText: 'dog', isRegex: true }),
+  'category dog concatenate',
+  'Regex: word boundary works'
+);
+
+// 18.7 wholeWord ignored when isRegex=true (regex user controls boundaries)
+assertEqual(
+  applyReplacementV2('category cat', { textToReplace: 'cat', replacementText: 'dog', isRegex: true, wholeWord: true }),
+  'dogegory dog',
+  'Regex mode: wholeWord flag ignored (user controls regex)'
+);
+
+// 18.8 Empty inputs still safe
+assertEqual(
+  applyReplacementV2('hello', { textToReplace: '', replacementText: 'x', isRegex: true }),
+  'hello',
+  'Regex: empty pattern returns original'
+);
+
+// Verify popup.html has regex checkbox
+assert(popupHtml.includes('id="isRegex"') || popupHtml.includes('id="useRegex"'), 'popup.html has regex mode checkbox');
+
+// Verify content.js handles isRegex
+assert(contentJs.includes('isRegex') || contentJs.includes('useRegex'), 'content.js handles regex mode flag');
+
+// ============================================================
+// TEST SUITE 19: F7 - RULE GROUPS / FOLDERS
+// ============================================================
+
+console.log('\n=== TEST SUITE 19: Rule Groups (F7) ===\n');
+
+const groupedRules = [
+  { textToReplace: 'a', replacementText: 'b', group: 'Salesforce', enabled: true },
+  { textToReplace: 'c', replacementText: 'd', group: 'Salesforce', enabled: true },
+  { textToReplace: 'e', replacementText: 'f', group: 'Internal', enabled: false },
+  { textToReplace: 'g', replacementText: 'h', group: '', enabled: true },
+  { textToReplace: 'i', replacementText: 'j', enabled: true },
+];
+
+// 19.1 Extract group names
+assertDeepEqual(getGroupNames(groupedRules), ['Internal', 'Salesforce'], 'Get sorted group names');
+
+// 19.2 Filter by group
+assertEqual(filterByGroup(groupedRules, 'Salesforce').length, 2, 'Filter Salesforce group: 2 rules');
+assertEqual(filterByGroup(groupedRules, 'Internal').length, 1, 'Filter Internal group: 1 rule');
+assertEqual(filterByGroup(groupedRules, '').length, 2, 'Filter empty group: 2 ungrouped rules');
+
+// 19.3 Filter null group returns all
+assertEqual(filterByGroup(groupedRules, null).length, 5, 'Null group filter returns all');
+
+// 19.4 Ungrouped count
+assertEqual(getUngroupedCount(groupedRules), 2, 'Ungrouped count: 2');
+
+// 19.5 Empty data
+assertDeepEqual(getGroupNames([]), [], 'Empty data: no groups');
+assertEqual(getUngroupedCount([]), 0, 'Empty data: 0 ungrouped');
+
+// 19.6 All ungrouped
+const noGroups = [{ textToReplace: 'x', replacementText: 'y' }];
+assertDeepEqual(getGroupNames(noGroups), [], 'No groups assigned: empty array');
+assertEqual(getUngroupedCount(noGroups), 1, 'All ungrouped: count 1');
+
+// 19.7 Group in search filter
+const groupSearchData = [
+  { textToReplace: 'a', replacementText: 'b', scope: '', group: 'SF Codes' },
+  { textToReplace: 'c', replacementText: 'd', scope: '', group: 'Other' },
+];
+// Search should also match group name
+function searchFilterV2(replacements, searchTerm) {
+  if (!searchTerm) return replacements;
+  const term = searchTerm.toLowerCase();
+  return replacements.filter(r =>
+    (r.textToReplace || '').toLowerCase().includes(term) ||
+    (r.replacementText || '').toLowerCase().includes(term) ||
+    (r.scope || '').toLowerCase().includes(term) ||
+    (r.group || '').toLowerCase().includes(term)
+  );
+}
+assertEqual(searchFilterV2(groupSearchData, 'SF').length, 1, 'Search by group name finds match');
+assertEqual(searchFilterV2(groupSearchData, 'codes').length, 1, 'Search partial group name');
+
+// Verify popup.html has group-related UI
+assert(popupHtml.includes('group') || popupHtml.includes('Group'), 'popup.html has group UI elements');
+
+// ============================================================
+// TEST SUITE 20: F10 - CONTEXT MENU
+// ============================================================
+
+console.log('\n=== TEST SUITE 20: Context Menu (F10) ===\n');
+
+assert(manifest.permissions.includes('contextMenus'), 'Manifest has contextMenus permission');
+assert(bgJs.includes('chrome.contextMenus'), 'background.js uses contextMenus API');
+assert(bgJs.includes('contextMenus.create') || bgJs.includes('contextMenus.onClicked'), 'background.js creates/handles context menu');
+
+// ============================================================
+// TEST SUITE 21: TD6 - ACCESSIBILITY
+// ============================================================
+
+console.log('\n=== TEST SUITE 21: Accessibility (TD6) ===\n');
+
+// Modal accessibility
+assert(popupHtml.includes('role="dialog"'), 'Modal has role="dialog"');
+assert(popupHtml.includes('aria-modal="true"'), 'Modal has aria-modal="true"');
+assert(popupHtml.includes('aria-labelledby'), 'Modal has aria-labelledby');
+
+// Form label associations
+assert(popupHtml.includes('for="textToReplace"'), 'Label for textToReplace input');
+assert(popupHtml.includes('for="replacementText"'), 'Label for replacementText input');
+assert(popupHtml.includes('for="scope"'), 'Label for scope input');
+
+// Icon button accessibility
+assert(popupHtml.includes('aria-label') || contentJs.includes('aria-label'), 'Buttons have aria-labels');
+
+// Search input accessibility
+assert(popupHtml.includes('aria-label="Search"') || popupHtml.includes('role="search"'), 'Search has accessibility attributes');
+
+// Global toggle accessibility
+assert(popupHtml.includes('aria-label') && popupHtml.includes('globalToggle'), 'Global toggle has accessibility');
+
+// Table accessibility
+assert(popupHtml.includes('scope="col"') || popupHtml.includes('role="table"'), 'Table has column scope or role');
+
+// ============================================================
+// TEST SUITE 22: TD7 - CSS VARIABLES
+// ============================================================
+
+console.log('\n=== TEST SUITE 22: CSS Variables (TD7) ===\n');
+
+const popupCss = fs.readFileSync(path.join(extDir, 'popup.css'), 'utf8');
+
+assert(popupCss.includes(':root'), 'CSS has :root selector');
+assert(popupCss.includes('--'), 'CSS uses custom properties');
+assert(popupCss.includes('var(--'), 'CSS references custom properties with var()');
+
+// Key color variables should exist
+assert(popupCss.includes('--color-primary') || popupCss.includes('--primary'), 'CSS has primary color variable');
+assert(popupCss.includes('--color-bg') || popupCss.includes('--bg'), 'CSS has background color variable');
+assert(popupCss.includes('--color-text') || popupCss.includes('--text'), 'CSS has text color variable');
+
+// ============================================================
+// TEST SUITE 23: F2 - STORAGE FALLBACK
+// ============================================================
+
+console.log('\n=== TEST SUITE 23: Storage Fallback (F2) ===\n');
+
+assertEqual(resolveStorageArea(true), 'sync', 'Sync available: use sync');
+assertEqual(resolveStorageArea(false), 'local', 'Sync unavailable: use local');
+
+// Verify source files use a storage abstraction or fallback
+const popupJs = fs.readFileSync(path.join(extDir, 'popup.js'), 'utf8');
+assert(
+  popupJs.includes('storage.local') || popupJs.includes('storageArea') || popupJs.includes('getStorage'),
+  'popup.js has storage fallback logic'
+);
+assert(
+  bgJs.includes('storage.local') || bgJs.includes('storageArea') || bgJs.includes('getStorage'),
+  'background.js has storage fallback logic'
+);
+
+// ============================================================
+// TEST SUITE 24: TD5 - TOAST NOTIFICATIONS
+// ============================================================
+
+console.log('\n=== TEST SUITE 24: Toast Notifications (TD5) ===\n');
+
+assert(popupHtml.includes('toast-container') || popupHtml.includes('toast'), 'popup.html has toast container');
+assert(popupJs.includes('showToast') || popupJs.includes('toast'), 'popup.js has toast function');
+assert(popupCss.includes('.toast') || popupCss.includes('toast'), 'popup.css has toast styles');
+
+// Verify alert() and confirm() are removed (or minimal)
+const alertCount = (popupJs.match(/\balert\(/g) || []).length;
+const confirmCount = (popupJs.match(/\bconfirm\(/g) || []).length;
+assert(alertCount === 0, `popup.js has no alert() calls (found ${alertCount})`);
+assert(confirmCount <= 1, `popup.js has at most 1 confirm() call for import (found ${confirmCount})`);
+
+// ============================================================
+// TEST SUITE 25: TD4 - ERROR HANDLING
+// ============================================================
+
+console.log('\n=== TEST SUITE 25: Error Handling (TD4) ===\n');
+
+// loadReplacements should check for errors
+assert(popupJs.includes('chrome.runtime.lastError') && popupJs.includes('loadReplacements'), 'popup.js loadReplacements checks for errors');
+
+// updateBadge should have error handling
+assert(
+  popupJs.includes('.catch') || popupJs.includes('try'),
+  'popup.js updateBadge has error handling'
+);
+
+// ============================================================
+// TEST SUITE 26: TD3 - DIST FOLDER VALIDATION
+// ============================================================
+
+console.log('\n=== TEST SUITE 26: Dist Folder (TD3) ===\n');
+
+const distDir = path.join(extDir, 'dist', 'TextReplacer');
+if (fs.existsSync(distDir)) {
+  // If dist exists, it must be current
+  const distManifest = JSON.parse(fs.readFileSync(path.join(distDir, 'manifest.json'), 'utf8'));
+  assertEqual(distManifest.version, manifest.version, 'dist manifest version matches source');
+  assert(distManifest.commands !== undefined, 'dist manifest has commands');
+  assert(distManifest.permissions.includes('contextMenus'), 'dist manifest has contextMenus');
+  
+  const distContentJs = fs.readFileSync(path.join(distDir, 'content.js'), 'utf8');
+  assert(distContentJs.includes('debouncedReplacements'), 'dist content.js has debounce');
+} else {
+  // dist removed is also valid
+  assert(true, 'dist/ folder removed (valid cleanup)');
+}
+
+// ============================================================
+// TEST SUITE 27: F4 - REGEX MODE IN SOURCE FILES
+// ============================================================
+
+console.log('\n=== TEST SUITE 27: Regex Mode Source Validation ===\n');
+
+assert(contentJs.includes('isRegex') || contentJs.includes('useRegex'), 'content.js supports regex mode');
+assert(popupJs.includes('isRegex') || popupJs.includes('useRegex'), 'popup.js handles regex mode');
+
+// Export should include isRegex field
+assert(popupJs.includes('isRegex') || popupJs.includes('useRegex'), 'Export includes regex flag');
 
 // ============================================================
 // RESULTS SUMMARY

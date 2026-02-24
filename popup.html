@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Text Replacer</title>
+  <title>ReText</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -11,35 +11,35 @@
     <header>
       <div class="header-row">
         <div class="header-left">
-          <h1>Text Replacer</h1>
+          <h1>ReText</h1>
           <p class="subtitle" id="countLabel">0 replacements</p>
         </div>
         <div class="header-right">
-          <label class="global-toggle" title="Enable/Disable all replacements">
-            <input type="checkbox" id="globalToggle" checked>
+          <label class="global-toggle" aria-label="Toggle all replacements on or off">
+            <input type="checkbox" id="globalToggle" checked aria-label="Global toggle">
             <span class="toggle-slider"></span>
           </label>
-          <button class="btn btn-primary btn-add" id="addReplacementBtn" title="Add New">Add</button>
+          <button class="btn btn-primary btn-add" id="addReplacementBtn" title="Add New" aria-label="Add new replacement">Add</button>
         </div>
       </div>
-      <div class="search-box">
-        <input type="text" id="searchInput" class="search-input" placeholder="🔍 Search replacements...">
+      <div class="search-box" role="search">
+        <input type="text" id="searchInput" class="search-input" placeholder="Search replacements..." aria-label="Search replacements">
       </div>
     </header>
 
     <div class="replacements-container">
-      <table class="replacements-table" id="replacementsTable">
+      <table class="replacements-table" id="replacementsTable" role="table" aria-label="Replacement rules">
         <thead>
           <tr>
-            <th class="col-toggle">On</th>
-            <th class="col-find">Find</th>
-            <th class="col-replace">Replace</th>
-            <th class="col-scope">Scope</th>
-            <th class="col-actions">Actions</th>
+            <th class="col-toggle" scope="col">On</th>
+            <th class="col-group" scope="col">Group</th>
+            <th class="col-find" scope="col">Find</th>
+            <th class="col-replace" scope="col">Replace</th>
+            <th class="col-scope" scope="col">Scope</th>
+            <th class="col-actions" scope="col">Actions</th>
           </tr>
         </thead>
         <tbody id="replacementsList">
-          <!-- Replacements will be dynamically added here -->
         </tbody>
       </table>
       <div class="empty-state" id="emptyState">
@@ -51,10 +51,10 @@
     </div>
 
     <div class="backup-section">
-      <button class="btn-small btn-outline" id="exportJsonBtn" title="Export as JSON">Export JSON</button>
-      <button class="btn-small btn-outline" id="exportCsvBtn" title="Export as CSV">Export CSV</button>
-      <button class="btn-small btn-outline" id="importBtn" title="Import from file">Import</button>
-      <input type="file" id="importFile" accept=".json,.csv" style="display: none;">
+      <button class="btn-small btn-outline" id="exportJsonBtn" title="Export as JSON" aria-label="Export as JSON">Export JSON</button>
+      <button class="btn-small btn-outline" id="exportCsvBtn" title="Export as CSV" aria-label="Export as CSV">Export CSV</button>
+      <button class="btn-small btn-outline" id="importBtn" title="Import from file" aria-label="Import from file">Import</button>
+      <input type="file" id="importFile" accept=".json,.csv" style="display: none;" aria-hidden="true">
     </div>
 
     <div class="shortcut-hint" id="shortcutHint">
@@ -63,32 +63,44 @@
   </div>
 
   <!-- Modal for adding/editing replacements -->
-  <div class="modal" id="replacementModal">
+  <div class="modal" id="replacementModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-content">
       <div class="modal-header">
         <h2 id="modalTitle">Add New Replacement</h2>
-        <button class="modal-close" id="closeModal">×</button>
+        <button class="modal-close" id="closeModal" aria-label="Close modal">&times;</button>
       </div>
       <div class="modal-body">
         <div class="form-group">
-          <label>Text to Replace:</label>
+          <label for="textToReplace">Text to Replace:</label>
           <input type="text" id="textToReplace" class="text-input" placeholder="Enter text to replace">
         </div>
         <div class="form-group">
-          <label>Replacement Text:</label>
+          <label for="replacementText">Replacement Text:</label>
           <input type="text" id="replacementText" class="text-input" placeholder="Enter replacement text">
         </div>
         <div class="form-group">
-          <label>Scope (Optional):</label>
+          <label for="scope">Scope (Optional):</label>
           <input type="text" id="scope" class="text-input" placeholder="e.g., example.com or leave empty">
           <small class="help-text">Leave empty to apply on all pages</small>
         </div>
+        <div class="form-group">
+          <label for="ruleGroup">Group (Optional):</label>
+          <input type="text" id="ruleGroup" class="text-input" placeholder="e.g., Salesforce, Internal" list="groupSuggestions">
+          <datalist id="groupSuggestions"></datalist>
+          <small class="help-text">Organize rules into named groups</small>
+        </div>
         <div class="form-group form-group-inline">
-          <label class="checkbox-label">
-            <input type="checkbox" id="wholeWord">
-            <span>Whole word only</span>
-          </label>
-          <small class="help-text">Match only complete words, not partial matches</small>
+          <div class="checkbox-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="wholeWord">
+              <span>Whole word only</span>
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="isRegex">
+              <span>Use regex</span>
+            </label>
+          </div>
+          <small class="help-text">Whole word: match complete words. Regex: use regular expression patterns.</small>
         </div>
         <div class="modal-actions">
           <button class="btn btn-secondary" id="cancelBtn">Cancel</button>
@@ -97,6 +109,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Toast notification container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
   <script src="popup.js"></script>
 </body>

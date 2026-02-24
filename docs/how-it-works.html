@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<!-- DOC-SYNC
+  sources: content.js, popup.js, popup.html, popup.css, background.js, manifest.json
+  generated: 2026-02-24T14:14:28.097Z
+  source-hash: 80a69a0cdc5b10031a5922302e48f30bdf45f72ec8a05a14c69da57b953c462f
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReText Extension — How It Works</title>
+  <style>
+    :root {
+      --bg: #0f172a; --bg2: #1e293b; --bg3: #334155;
+      --text: #e2e8f0; --text2: #94a3b8; --text3: #64748b;
+      --blue: #60a5fa; --purple: #a78bfa; --green: #86efac;
+      --red: #fca5a5; --yellow: #fbbf24; --orange: #fdba74;
+      --cyan: #67e8f9; --pink: #f9a8d4;
+      --border: #1e293b;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; }
+    ::selection { background: rgba(96,165,250,0.3); }
+
+    /* NAV */
+    nav { position: fixed; top: 0; left: 0; right: 0; background: rgba(15,23,42,0.92); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); z-index: 100; }
+    nav .nav-inner { max-width: 1100px; margin: 0 auto; display: flex; align-items: center; gap: 24px; padding: 0 20px; height: 56px; overflow-x: auto; }
+    nav a { color: var(--text3); text-decoration: none; font-size: 0.82rem; font-weight: 500; white-space: nowrap; transition: color 0.2s; padding: 4px 0; border-bottom: 2px solid transparent; }
+    nav a:hover, nav a.active { color: var(--blue); border-bottom-color: var(--blue); }
+    .nav-logo { color: var(--blue); font-weight: 700; font-size: 1rem; margin-right: 12px; }
+
+    /* HERO */
+    .hero { padding: 120px 20px 60px; text-align: center; background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%); }
+    .hero h1 { font-size: 2.8rem; font-weight: 800; background: linear-gradient(135deg, var(--blue), var(--purple), var(--pink)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 16px; }
+    .hero p { color: var(--text2); font-size: 1.15rem; max-width: 640px; margin: 0 auto 30px; }
+    .hero-stats { display: flex; justify-content: center; gap: 40px; flex-wrap: wrap; }
+    .hero-stat { text-align: center; }
+    .hero-stat .num { font-size: 2rem; font-weight: 800; color: var(--blue); }
+    .hero-stat .lbl { font-size: 0.8rem; color: var(--text3); }
+
+    /* CONTAINER */
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+    section { padding: 60px 0; border-bottom: 1px solid var(--border); }
+    section:last-child { border-bottom: none; }
+
+    /* SECTION HEADERS */
+    .sec-num { font-size: 0.75rem; font-weight: 700; color: var(--purple); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+    h2 { font-size: 1.8rem; margin-bottom: 12px; color: #f8fafc; }
+    .sec-desc { color: var(--text2); max-width: 700px; margin-bottom: 32px; }
+
+    /* ARCHITECTURE DIAGRAM */
+    .arch-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin: 30px 0; }
+    @media (max-width: 768px) { .arch-grid { grid-template-columns: 1fr; } }
+    .arch-card { background: var(--bg2); border: 1px solid var(--bg3); border-radius: 12px; padding: 24px; position: relative; overflow: hidden; transition: transform 0.2s, border-color 0.2s; }
+    .arch-card:hover { transform: translateY(-3px); border-color: var(--blue); }
+    .arch-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+    .arch-card.card-content::before { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+    .arch-card.card-popup::before { background: linear-gradient(90deg, var(--blue), var(--purple)); }
+    .arch-card.card-bg::before { background: linear-gradient(90deg, var(--orange), var(--yellow)); }
+    .arch-card h3 { font-size: 1.05rem; margin-bottom: 4px; }
+    .arch-card .card-file { font-size: 0.75rem; color: var(--text3); font-family: monospace; margin-bottom: 10px; }
+    .arch-card ul { list-style: none; font-size: 0.85rem; color: var(--text2); }
+    .arch-card ul li { padding: 3px 0; }
+    .arch-card ul li::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+    .card-content ul li::before { background: var(--green); }
+    .card-popup ul li::before { background: var(--blue); }
+    .card-bg ul li::before { background: var(--orange); }
+
+    /* FLOW ARROWS */
+    .flow { display: flex; align-items: center; justify-content: center; gap: 0; margin: 40px 0; flex-wrap: wrap; }
+    .flow-node { padding: 10px 18px; border-radius: 8px; font-size: 0.82rem; font-weight: 600; text-align: center; }
+    .flow-arrow { color: var(--text3); font-size: 1.3rem; padding: 0 8px; }
+    .fn-storage { background: #1e1b4b; color: var(--purple); border: 1px solid #3730a3; }
+    .fn-content { background: #052e16; color: var(--green); border: 1px solid #166534; }
+    .fn-popup { background: #172554; color: var(--blue); border: 1px solid #1e40af; }
+    .fn-bg { background: #431407; color: var(--orange); border: 1px solid #9a3412; }
+    .fn-dom { background: #1c1917; color: var(--yellow); border: 1px solid #78350f; }
+
+    /* CODE BLOCK */
+    .code-block { background: #0c1222; border-radius: 10px; overflow: hidden; margin: 24px 0; border: 1px solid var(--border); }
+    .code-header { background: var(--bg2); padding: 10px 16px; font-size: 0.78rem; color: var(--text3); display: flex; justify-content: space-between; }
+    .code-header .filename { color: var(--text2); font-weight: 600; font-family: monospace; }
+    .code-body { padding: 16px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 0.8rem; line-height: 1.8; overflow-x: auto; white-space: pre; }
+    .kw { color: var(--purple); } .fn { color: var(--blue); } .str { color: var(--green); }
+    .num { color: var(--yellow); } .cm { color: var(--text3); } .op { color: var(--text2); }
+    .hl { background: rgba(96,165,250,0.12); display: block; margin: 0 -16px; padding: 0 16px; border-left: 3px solid var(--blue); }
+
+    /* INTERACTIVE DEMOS */
+    .demo-box { background: var(--bg2); border: 1px solid var(--bg3); border-radius: 12px; padding: 24px; margin: 24px 0; }
+    .demo-box h4 { font-size: 0.95rem; margin-bottom: 12px; color: var(--text); }
+
+    .demo-input-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+    .demo-input { background: var(--bg); border: 1px solid var(--bg3); border-radius: 6px; padding: 8px 12px; color: var(--text); font-size: 0.85rem; font-family: monospace; }
+    .demo-input:focus { outline: none; border-color: var(--blue); }
+    .demo-input.wide { flex: 1; min-width: 200px; }
+    .demo-btn { padding: 8px 18px; border: none; border-radius: 6px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+    .demo-btn-blue { background: #2563eb; color: white; }
+    .demo-btn-blue:hover { background: #3b82f6; }
+    .demo-btn-green { background: #16a34a; color: white; }
+    .demo-btn-green:hover { background: #22c55e; }
+    .demo-result { background: var(--bg); border-radius: 8px; padding: 14px 16px; font-size: 0.88rem; min-height: 44px; margin-top: 8px; line-height: 1.8; }
+    .demo-result .match { background: #166534; color: var(--green); padding: 1px 4px; border-radius: 3px; }
+    .demo-result .original { background: #7f1d1d; color: var(--red); padding: 1px 4px; border-radius: 3px; text-decoration: line-through; }
+
+    /* SCOPE DEMO */
+    .scope-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+    @media (max-width: 600px) { .scope-grid { grid-template-columns: 1fr; } }
+    .scope-item { background: var(--bg); border-radius: 8px; padding: 12px; font-size: 0.82rem; }
+    .scope-item .scope-pattern { font-family: monospace; color: var(--yellow); margin-bottom: 6px; }
+    .scope-item .scope-url { color: var(--text2); font-family: monospace; font-size: 0.75rem; }
+    .scope-item .scope-result { margin-top: 6px; font-weight: 600; }
+    .scope-match { color: var(--green); }
+    .scope-no { color: var(--red); }
+
+    /* TOGGLE DEMO */
+    .toggle-demo { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+    .toggle-panel { background: var(--bg); border-radius: 10px; padding: 16px; flex: 1; min-width: 280px; }
+    .toggle-panel h5 { font-size: 0.85rem; margin-bottom: 10px; color: var(--text2); }
+    .toggle-rule { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 0.82rem; border-bottom: 1px solid var(--border); }
+    .toggle-rule:last-child { border-bottom: none; }
+    .toggle-rule input[type="checkbox"] { accent-color: var(--green); width: 16px; height: 16px; }
+    .toggle-rule.off { opacity: 0.4; }
+    .toggle-output { margin-top: 12px; font-size: 0.82rem; color: var(--text2); }
+    .toggle-count { font-size: 1.5rem; font-weight: 800; }
+    .count-on { color: var(--green); }
+    .count-off { color: var(--red); }
+
+    /* DOM TREE VIZ */
+    .dom-tree { font-family: monospace; font-size: 0.82rem; padding: 16px; background: var(--bg); border-radius: 8px; }
+    .dom-tree .node { padding: 2px 0; }
+    .dom-tree .tag { color: var(--blue); }
+    .dom-tree .text-node { color: var(--green); background: rgba(134,239,172,0.08); padding: 1px 6px; border-radius: 3px; }
+    .dom-tree .indent { display: inline-block; }
+    .dom-tree .skip-tag { color: var(--red); opacity: 0.5; }
+    .dom-tree .arrow-note { color: var(--yellow); font-size: 0.75rem; margin-left: 8px; }
+
+    /* TIMELINE */
+    .timeline { position: relative; padding-left: 30px; margin: 20px 0; }
+    .timeline::before { content: ''; position: absolute; left: 10px; top: 0; bottom: 0; width: 2px; background: var(--bg3); }
+    .timeline-item { position: relative; margin-bottom: 20px; }
+    .timeline-item::before { content: ''; position: absolute; left: -24px; top: 6px; width: 12px; height: 12px; border-radius: 50%; border: 2px solid; }
+    .tl-blue::before { border-color: var(--blue); background: #172554; }
+    .tl-green::before { border-color: var(--green); background: #052e16; }
+    .tl-orange::before { border-color: var(--orange); background: #431407; }
+    .tl-purple::before { border-color: var(--purple); background: #1e1b4b; }
+    .timeline-item h4 { font-size: 0.9rem; margin-bottom: 2px; }
+    .timeline-item p { font-size: 0.82rem; color: var(--text2); }
+
+    /* BUG CARDS */
+    .bug-card { background: var(--bg2); border: 1px solid var(--bg3); border-radius: 10px; padding: 20px; margin: 16px 0; }
+    .bug-card h4 { color: var(--red); font-size: 0.95rem; margin-bottom: 8px; }
+    .bug-card .bug-fix h4 { color: var(--green); }
+    .bug-desc { color: var(--text2); font-size: 0.85rem; margin-bottom: 12px; }
+
+    /* FEATURES TABLE */
+    .feature-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .feature-table th { background: var(--bg2); padding: 10px 14px; text-align: left; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.72rem; }
+    .feature-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+    .feature-table tr:hover td { background: rgba(30,41,59,0.5); }
+    .badge-feat { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
+    .badge-core { background: #1e3a5f; color: var(--blue); }
+    .badge-perf { background: #14532d; color: var(--green); }
+    .badge-ux { background: #3b0764; color: var(--purple); }
+    .badge-data { background: #431407; color: var(--orange); }
+
+    /* FOOTER */
+    footer { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 0.8rem; border-top: 1px solid var(--border); }
+    footer a { color: var(--blue); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <span class="nav-logo">TR</span>
+    <a href="#architecture">Architecture</a>
+    <a href="#dom-traversal">DOM Traversal</a>
+    <a href="#scope-matching">Scope Matching</a>
+    <a href="#regex-engine">Regex Engine</a>
+    <a href="#debounce">Debounce</a>
+    <a href="#messaging">Messaging</a>
+    <a href="#storage">Storage</a>
+    <a href="#import-export">Import/Export</a>
+    <a href="#bugs-fixed">Bugs Fixed</a>
+    <a href="#features">Features</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <h1>How ReText Works</h1>
+  <p>An interactive deep-dive into the architecture, patterns, and hard-won lessons behind a Manifest V3 browser extension.</p>
+  <div class="hero-stats">
+    <div class="hero-stat"><div class="num">6</div><div class="lbl">Source Files</div></div>
+    <div class="hero-stat"><div class="num">~1400</div><div class="lbl">Lines of Code</div></div>
+    <div class="hero-stat"><div class="num">186</div><div class="lbl">Tests Passing</div></div>
+    <div class="hero-stat"><div class="num">10</div><div class="lbl">Features</div></div>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ============================================================ -->
+<!-- 1. ARCHITECTURE -->
+<!-- ============================================================ -->
+<section id="architecture">
+  <div class="sec-num">Section 01</div>
+  <h2>Extension Architecture</h2>
+  <p class="sec-desc">A Manifest V3 Chrome/Edge extension has three isolated execution contexts that communicate through Chrome APIs. No component can directly call functions in another.</p>
+
+  <div class="arch-grid">
+    <div class="arch-card card-content">
+      <h3>Content Script</h3>
+      <div class="card-file">content.js &middot; 176 lines</div>
+      <ul>
+        <li>Injected into every web page</li>
+        <li>Walks the DOM tree, replaces text</li>
+        <li>Watches for dynamic content changes</li>
+        <li>Scoped by URL pattern matching</li>
+        <li>Runs in page context (isolated world)</li>
+      </ul>
+    </div>
+    <div class="arch-card card-popup">
+      <h3>Popup UI</h3>
+      <div class="card-file">popup.html + popup.js + popup.css &middot; ~650 lines</div>
+      <ul>
+        <li>Appears when user clicks extension icon</li>
+        <li>CRUD for replacement rules</li>
+        <li>Search, filter, toggle controls</li>
+        <li>Import/Export (JSON, CSV)</li>
+        <li>Lives only while popup is open</li>
+      </ul>
+    </div>
+    <div class="arch-card card-bg">
+      <h3>Background Worker</h3>
+      <div class="card-file">background.js &middot; 91 lines</div>
+      <ul>
+        <li>Service worker (no persistent page)</li>
+        <li>Manages badge count and colors</li>
+        <li>Handles keyboard shortcut (Ctrl+Shift+R)</li>
+        <li>Context menu "Create rule from selection"</li>
+        <li>Broadcasts toggle to all tabs</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 style="margin: 30px 0 16px; font-size: 1rem; color: var(--text2);">Data Flow</h3>
+  <div class="flow">
+    <div class="flow-node fn-popup">Popup UI</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-node fn-storage">chrome.storage</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-node fn-content">Content Script</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-node fn-dom">DOM (web page)</div>
+  </div>
+  <div class="flow" style="margin-top: 12px;">
+    <div class="flow-node fn-popup">Popup</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-node fn-bg">Background</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-node fn-content">All Tabs</div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="filename">manifest.json</span><span>Manifest V3</span></div>
+    <div class="code-body">{
+  <span class="str">"manifest_version"</span>: <span class="num">3</span>,
+  <span class="str">"permissions"</span>: [<span class="str">"storage"</span>, <span class="str">"activeTab"</span>, <span class="str">"contextMenus"</span>],
+  <span class="str">"content_scripts"</span>: [{
+    <span class="str">"matches"</span>: [<span class="str">"&lt;all_urls&gt;"</span>],
+    <span class="str">"js"</span>: [<span class="str">"content.js"</span>],
+<span class="hl">    <span class="str">"run_at"</span>: <span class="str">"document_end"</span>,     <span class="cm">// After DOM is built</span></span>
+<span class="hl">    <span class="str">"all_frames"</span>: <span class="kw">true</span>            <span class="cm">// Runs in iframes too</span></span>
+  }],
+  <span class="str">"background"</span>: { <span class="str">"service_worker"</span>: <span class="str">"background.js"</span> },
+  <span class="str">"commands"</span>: {
+    <span class="str">"toggle-extension"</span>: { <span class="str">"suggested_key"</span>: { <span class="str">"default"</span>: <span class="str">"Ctrl+Shift+R"</span> } }
+  }
+}</div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- 2. DOM TRAVERSAL -->
+<!-- ============================================================ -->
+<section id="dom-traversal">
+  <div class="sec-num">Section 02</div>
+  <h2>DOM Tree Traversal</h2>
+  <p class="sec-desc">The content script recursively walks every node in <code>document.body</code>, but only modifies <code>TEXT_NODE</code> elements. This preserves HTML structure, event listeners, and element attributes.</p>
+
+  <div class="demo-box">
+    <h4>How the DOM looks to our walker</h4>
+    <div class="dom-tree">
+      <div class="node"><span class="tag">&lt;body&gt;</span></div>
+      <div class="node"><span class="indent">&nbsp;&nbsp;</span><span class="tag">&lt;p&gt;</span></div>
+      <div class="node"><span class="indent">&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="text-node">"Hello "</span> <span class="arrow-note">&larr; TEXT_NODE: we replace here</span></div>
+      <div class="node"><span class="indent">&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="tag">&lt;strong&gt;</span></div>
+      <div class="node"><span class="indent">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="text-node">"World"</span> <span class="arrow-note">&larr; TEXT_NODE: and here</span></div>
+      <div class="node"><span class="indent">&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="tag">&lt;/strong&gt;</span></div>
+      <div class="node"><span class="indent">&nbsp;&nbsp;&nbsp;&nbsp;</span><span class="text-node">"!"</span></div>
+      <div class="node"><span class="indent">&nbsp;&nbsp;</span><span class="tag">&lt;/p&gt;</span></div>
+      <div class="node"><span class="indent">&nbsp;&nbsp;</span><span class="skip-tag">&lt;script&gt;...&lt;/script&gt;</span> <span class="arrow-note">&larr; SKIPPED (SKIP_TAGS)</span></div>
+      <div class="node"><span class="indent">&nbsp;&nbsp;</span><span class="skip-tag">&lt;style&gt;...&lt;/style&gt;</span> <span class="arrow-note">&larr; SKIPPED</span></div>
+      <div class="node"><span class="indent">&nbsp;&nbsp;</span><span class="skip-tag">&lt;textarea&gt;...&lt;/textarea&gt;</span> <span class="arrow-note">&larr; SKIPPED</span></div>
+      <div class="node"><span class="tag">&lt;/body&gt;</span></div>
+    </div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="filename">content.js</span><span>Core replacement engine</span></div>
+    <div class="code-body"><span class="kw">const</span> SKIP_TAGS = <span class="kw">new</span> <span class="fn">Set</span>([<span class="str">'SCRIPT'</span>, <span class="str">'STYLE'</span>, <span class="str">'TEXTAREA'</span>, <span class="str">'NOSCRIPT'</span>, <span class="str">'CODE'</span>, <span class="str">'PRE'</span>]);
+
+<span class="kw">function</span> <span class="fn">replaceTextInNode</span>(node, replacements) {
+<span class="hl">  <span class="kw">if</span> (node.nodeType === Node.TEXT_NODE) {     <span class="cm">// Leaf: actual text</span></span>
+    <span class="kw">let</span> text = node.textContent;
+    replacements.<span class="fn">forEach</span>(rule => {
+      <span class="kw">const</span> regex = <span class="kw">new</span> <span class="fn">RegExp</span>(pattern, <span class="str">'gi'</span>);
+      text = text.<span class="fn">replace</span>(regex, rule.replacementText);
+    });
+    <span class="kw">if</span> (modified) node.textContent = text;
+
+<span class="hl">  } <span class="kw">else if</span> (node.nodeType === Node.ELEMENT_NODE) {  <span class="cm">// Branch: recurse</span></span>
+<span class="hl">    <span class="kw">if</span> (SKIP_TAGS.<span class="fn">has</span>(node.tagName)) <span class="kw">return</span>;     <span class="cm">// Skip dangerous tags</span></span>
+    <span class="kw">for</span> (<span class="kw">let</span> child <span class="kw">of</span> node.childNodes) {
+      <span class="fn">replaceTextInNode</span>(child, replacements);
+    }
+  }
+}</div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- 3. SCOPE MATCHING -->
+<!-- ============================================================ -->
+<section id="scope-matching">
+  <div class="sec-num">Section 03</div>
+  <h2>Scope Matching</h2>
+  <p class="sec-desc">Each rule can be restricted to specific URLs or domains. Scopes support wildcards, comma-separation, and are tested against both hostname and full URL.</p>
+
+  <div class="demo-box">
+    <h4>Try it: Enter a URL and scope pattern</h4>
+    <div class="demo-input-row">
+      <input class="demo-input wide" id="scopeUrl" value="https://adt.lightning.force.com/lightning/r/Quote/related/Histories/view?ws=abc" placeholder="URL">
+    </div>
+    <div class="demo-input-row">
+      <input class="demo-input wide" id="scopePattern" value="*/related/Histories/view*" placeholder="Scope pattern">
+      <button class="demo-btn demo-btn-blue" onclick="testScope()">Test Match</button>
+    </div>
+    <div class="demo-result" id="scopeResult" style="font-family: monospace; font-size: 0.82rem;">Click "Test Match" to see the result.</div>
+  </div>
+
+  <div class="scope-grid">
+    <div class="scope-item">
+      <div class="scope-pattern">*.example.com</div>
+      <div class="scope-url">https://sub.example.com/page</div>
+      <div class="scope-result scope-match">MATCH &mdash; wildcard matches subdomain</div>
+    </div>
+    <div class="scope-item">
+      <div class="scope-pattern">*/api/*</div>
+      <div class="scope-url">https://site.com/api/users</div>
+      <div class="scope-result scope-match">MATCH &mdash; path wildcard</div>
+    </div>
+    <div class="scope-item">
+      <div class="scope-pattern">*/view*</div>
+      <div class="scope-url">https://site.com/view</div>
+      <div class="scope-result scope-match">MATCH &mdash; flexible trailing</div>
+    </div>
+    <div class="scope-item">
+      <div class="scope-pattern">*/view/*</div>
+      <div class="scope-url">https://site.com/view</div>
+      <div class="scope-result scope-no">NO MATCH &mdash; requires content after /view/</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- 4. REGEX ENGINE -->
+<!-- ============================================================ -->
+<section id="regex-engine">
+  <div class="sec-num">Section 04</div>
+  <h2>Regex Engine &amp; Whole Word</h2>
+  <p class="sec-desc">User input is escaped before becoming a regex pattern. Whole-word matching uses <code>\b</code> for alphanumeric terms and whitespace lookaround for terms with special characters like <code>$50</code>.</p>
+
+  <div class="demo-box">
+    <h4>Interactive: Test replacement logic</h4>
+    <div class="demo-input-row">
+      <input class="demo-input wide" id="regexText" value="Error 8601 at step 86010 — code 8601" placeholder="Input text">
+    </div>
+    <div class="demo-input-row">
+      <input class="demo-input" id="regexFind" value="8601" placeholder="Find" style="width:160px;">
+      <input class="demo-input" id="regexReplace" value="QS Load" placeholder="Replace with" style="width:160px;">
+      <label style="font-size:0.82rem; display:flex; align-items:center; gap:6px;">
+        <input type="checkbox" id="regexWholeWord" checked style="accent-color: var(--green);"> Whole word
+      </label>
+      <button class="demo-btn demo-btn-green" onclick="testRegex()">Replace</button>
+    </div>
+    <div class="demo-result" id="regexResult">Click "Replace" to see the result.</div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="filename">content.js</span><span>Whole-word pattern builder</span></div>
+    <div class="code-body"><span class="kw">const</span> escapedText = find.<span class="fn">replace</span>(<span class="str">/[.*+?^${}()|[\]\\]/g</span>, <span class="str">'\\$&'</span>);
+
+<span class="kw">if</span> (wholeWord) {
+  <span class="kw">const</span> hasSpecialChars = <span class="str">/[^a-zA-Z0-9_]/</span>.<span class="fn">test</span>(find);
+  <span class="kw">if</span> (hasSpecialChars) {
+<span class="hl">    pattern = <span class="str">`(?&lt;=^|[\\s])${escapedText}(?=[\\s]|$)`</span>;  <span class="cm">// Whitespace boundaries</span></span>
+  } <span class="kw">else</span> {
+<span class="hl">    pattern = <span class="str">`\\b${escapedText}\\b`</span>;                   <span class="cm">// Word boundaries</span></span>
+  }
+}</div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- 5. DEBOUNCE -->
+<!-- ============================================================ -->
+<section id="debounce">
+  <div class="sec-num">Section 05</div>
+  <h2>MutationObserver Debounce</h2>
+  <p class="sec-desc">SPAs fire hundreds of DOM mutations per second. Without debouncing, each triggers a full storage read + DOM walk. The debounce waits 150ms for mutations to settle, then runs once.</p>
+
+  <div class="flow">
+    <div class="flow-node fn-dom">Mutation</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-node fn-bg">clearTimeout</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-node fn-bg">setTimeout(150ms)</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-node" style="background:#1e1b4b; color:var(--text3); border:1px dashed var(--bg3);">...quiet...</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-node fn-content">1 DOM Walk</div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header"><span class="filename">content.js</span><span>6 lines that cut CPU by 90%+</span></div>
+    <div class="code-body"><span class="kw">let</span> _debounceTimer = <span class="kw">null</span>;
+<span class="kw">function</span> <span class="fn">debouncedReplacements</span>(delay = <span class="num">150</span>) {
+  <span class="fn">clearTimeout</span>(_debounceTimer);          <span class="cm">// Cancel pending work</span>
+  _debounceTimer = <span class="fn">setTimeout</span>(
+    () => <span class="fn">performReplacements</span>(), delay  <span class="cm">// Schedule new</span>
+  );
+}
+
+<span class="cm">// MutationObserver uses debounced version</span>
+<span class="kw">const</span> observer = <span class="kw">new</span> <span class="fn">MutationObserver</span>(() => {
+<span class="hl">  <span class="fn">debouncedReplacements</span>();   <span class="cm">// NOT performReplacements()</span></span>
+});</div>
+  </div>
+
+  <p style="font-size: 0.85rem; color: var(--text2); margin-top: 16px;">
+    <a href="debounce-explainer.html" style="color: var(--blue); text-decoration: none; font-weight: 600;">Open the interactive debounce demo &rarr;</a> to see a live side-by-side comparison (42 executions vs 1).
+  </p>
+</section>
+
+<!-- ============================================================ -->
+<!-- 6. MESSAGING -->
+<!-- ============================================================ -->
+<section id="messaging">
+  <div class="sec-num">Section 06</div>
+  <h2>Inter-Component Messaging</h2>
+  <p class="sec-desc">The three extension contexts can't share memory. They communicate via <code>chrome.runtime.sendMessage</code> (popup/background) and <code>chrome.tabs.sendMessage</code> (to content scripts).</p>
+
+  <div class="timeline">
+    <div class="timeline-item tl-blue">
+      <h4>User toggles global switch in popup</h4>
+      <p>popup.js saves <code>globalEnabled</code> to storage, calls <code>updateBadge()</code></p>
+    </div>
+    <div class="timeline-item tl-orange">
+      <h4>Popup sends badge update to background</h4>
+      <p><code>chrome.runtime.sendMessage({ action: 'updateBadge', count })</code></p>
+    </div>
+    <div class="timeline-item tl-orange">
+      <h4>Background updates the icon badge</h4>
+      <p><code>chrome.action.setBadgeText({ text: count })</code> with green or red color</p>
+    </div>
+    <div class="timeline-item tl-green">
+      <h4>Storage change event fires in content script</h4>
+      <p><code>chrome.storage.onChanged</code> triggers <code>performReplacements()</code></p>
+    </div>
+    <div class="timeline-item tl-purple">
+      <h4>Keyboard shortcut (Ctrl+Shift+R)</h4>
+      <p>Background toggles state, updates badge, broadcasts <code>toggleGlobal</code> to all tabs</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- 7. STORAGE -->
+<!-- ============================================================ -->
+<section id="storage">
+  <div class="sec-num">Section 07</div>
+  <h2>Storage Strategy</h2>
+  <p class="sec-desc">Rules persist across sessions via <code>chrome.storage</code>. A helper function tries <code>sync</code> first (cross-device), falls back to <code>local</code> (for Edge without Microsoft account).</p>
+
+  <div class="code-block">
+    <div class="code-header"><span class="filename">content.js / background.js</span><span>Storage abstraction</span></div>
+    <div class="code-body"><span class="kw">function</span> <span class="fn">getStorage</span>() {
+  <span class="kw">try</span> {
+    <span class="kw">if</span> (chrome.storage.sync) <span class="kw">return</span> chrome.storage.sync;
+  } <span class="kw">catch</span> (e) { <span class="cm">/* sync unavailable in Edge */</span> }
+  <span class="kw">return</span> chrome.storage.local;    <span class="cm">// Always works</span>
+}</div>
+  </div>
+
+  <div class="demo-box">
+    <h4>Data shape in storage</h4>
+    <div class="code-body" style="background: var(--bg); border-radius: 8px; padding: 14px; margin: 0; font-size: 0.8rem;">{
+  <span class="str">"globalEnabled"</span>: <span class="kw">true</span>,
+  <span class="str">"replacements"</span>: [
+    {
+      <span class="str">"textToReplace"</span>: <span class="str">"8601"</span>,
+      <span class="str">"replacementText"</span>: <span class="str">"On QS Load"</span>,
+      <span class="str">"scope"</span>: <span class="str">"*/Histories/view*"</span>,
+      <span class="str">"wholeWord"</span>: <span class="kw">true</span>,
+      <span class="str">"enabled"</span>: <span class="kw">true</span>
+    }
+  ]
+}</div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- 8. IMPORT/EXPORT -->
+<!-- ============================================================ -->
+<section id="import-export">
+  <div class="sec-num">Section 08</div>
+  <h2>Multi-Format Import/Export</h2>
+  <p class="sec-desc">The extension reads three JSON structures and CSV. Array scopes like <code>["a", "b"]</code> are automatically joined into comma-separated strings.</p>
+
+  <div class="arch-grid">
+    <div class="arch-card card-popup">
+      <h3>Standard Backup</h3>
+      <div class="card-file">{ "replacements": [...] }</div>
+      <ul>
+        <li>Exported by this extension</li>
+        <li>Full round-trip fidelity</li>
+        <li>Includes enabled/wholeWord state</li>
+      </ul>
+    </div>
+    <div class="arch-card card-content">
+      <h3>Codes Format</h3>
+      <div class="card-file">{ "codes": [{ code, name, scope }] }</div>
+      <ul>
+        <li>code &rarr; textToReplace</li>
+        <li>name &rarr; replacementText</li>
+        <li>scope can be string or array</li>
+      </ul>
+    </div>
+    <div class="arch-card card-bg">
+      <h3>CSV</h3>
+      <div class="card-file">textToReplace,replacementText,scope,...</div>
+      <ul>
+        <li>Standard 5-column CSV</li>
+        <li>Quoted fields for commas/quotes</li>
+        <li>Proper escape/parse round-trip</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- 9. BUGS FIXED -->
+<!-- ============================================================ -->
+<section id="bugs-fixed">
+  <div class="sec-num">Section 09</div>
+  <h2>Bugs We Found &amp; Fixed</h2>
+  <p class="sec-desc">Real bugs discovered during development and testing, with the root cause and solution.</p>
+
+  <div class="bug-card">
+    <h4>Bug: regex.test() + replace() with global flag</h4>
+    <div class="bug-desc">Calling <code>regex.test(text)</code> on a <code>/g</code> regex advances <code>lastIndex</code>. The subsequent <code>text.replace(regex, ...)</code> starts mid-string and misses the first match.</div>
+    <div class="bug-fix"><h4>Fix: Skip test(), compare replace() result directly</h4></div>
+    <div class="code-body" style="background: var(--bg); border-radius: 6px; padding: 10px; font-size: 0.78rem;"><span class="cm">// BEFORE (bug): test() eats the first match</span>
+<span class="kw">if</span> (regex.<span class="fn">test</span>(text)) { text = text.<span class="fn">replace</span>(regex, rep); }
+
+<span class="cm">// AFTER (fix): just replace and compare</span>
+<span class="kw">const</span> newText = text.<span class="fn">replace</span>(regex, rep);
+<span class="kw">if</span> (newText !== text) { text = newText; }</div>
+  </div>
+
+  <div class="bug-card">
+    <h4>Bug: \b word boundary fails on $50, (555), v2.0</h4>
+    <div class="bug-desc"><code>\b</code> sits between <code>\w</code> and <code>\W</code>. Since <code>$</code> is already <code>\W</code>, there's no <code>\w&rarr;\W</code> boundary before it, so <code>\b\$50\b</code> never matches.</div>
+    <div class="bug-fix"><h4>Fix: Use whitespace lookaround for special-char terms</h4></div>
+    <div class="code-body" style="background: var(--bg); border-radius: 6px; padding: 10px; font-size: 0.78rem;"><span class="cm">// Detect and use appropriate boundary strategy</span>
+<span class="kw">const</span> hasSpecial = <span class="str">/[^a-zA-Z0-9_]/</span>.<span class="fn">test</span>(term);
+<span class="kw">if</span> (hasSpecial) pattern = <span class="str">`(?&lt;=^|\\s)${escaped}(?=\\s|$)`</span>;  <span class="cm">// whitespace</span>
+<span class="kw">else</span>             pattern = <span class="str">`\\b${escaped}\\b`</span>;                <span class="cm">// word boundary</span></div>
+  </div>
+
+  <div class="bug-card">
+    <h4>Bug: MutationObserver fires 42x per page update</h4>
+    <div class="bug-desc">Every DOM mutation triggered a full <code>performReplacements()</code> &mdash; storage read + recursive DOM walk. On Salesforce Lightning, this meant 40+ wasted executions per content load.</div>
+    <div class="bug-fix"><h4>Fix: 150ms debounce on the observer callback</h4></div>
+    <div class="code-body" style="background: var(--bg); border-radius: 6px; padding: 10px; font-size: 0.78rem;"><span class="cm">// Batch rapid mutations into one execution</span>
+<span class="kw">let</span> timer = <span class="kw">null</span>;
+<span class="kw">const</span> observer = <span class="kw">new</span> <span class="fn">MutationObserver</span>(() => {
+  <span class="fn">clearTimeout</span>(timer);
+  timer = <span class="fn">setTimeout</span>(() => <span class="fn">performReplacements</span>(), <span class="num">150</span>);
+});</div>
+  </div>
+
+  <div class="bug-card">
+    <h4>Bug: Scope */view/* doesn't match /view</h4>
+    <div class="bug-desc">Pattern <code>*/view/*</code> compiles to regex <code>.*/view/.*</code> which requires at least one character after <code>/view/</code>. URLs ending with <code>/view</code> or <code>/view?q=1</code> failed.</div>
+    <div class="bug-fix"><h4>Fix: Use */view* (no trailing slash requirement)</h4></div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- 10. FEATURES -->
+<!-- ============================================================ -->
+<section id="features">
+  <div class="sec-num">Section 10</div>
+  <h2>Feature Map</h2>
+  <p class="sec-desc">Every feature, where it lives in the code, and its category.</p>
+
+  <table class="feature-table">
+    <thead>
+      <tr><th>Feature</th><th>Category</th><th>Files</th><th>Key Pattern</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Text replacement on all pages</td><td><span class="badge-feat badge-core">Core</span></td><td>content.js</td><td>Recursive DOM walk on TEXT_NODE</td></tr>
+      <tr><td>URL scope filtering (wildcards)</td><td><span class="badge-feat badge-core">Core</span></td><td>content.js</td><td>* &rarr; .* regex conversion</td></tr>
+      <tr><td>Dynamic content (MutationObserver)</td><td><span class="badge-feat badge-perf">Perf</span></td><td>content.js</td><td>Debounced observer at 150ms</td></tr>
+      <tr><td>Skip script/style/textarea tags</td><td><span class="badge-feat badge-perf">Perf</span></td><td>content.js</td><td>SKIP_TAGS Set check</td></tr>
+      <tr><td>Global on/off toggle</td><td><span class="badge-feat badge-ux">UX</span></td><td>popup + background + content</td><td>Storage + message broadcast</td></tr>
+      <tr><td>Per-rule enable/disable</td><td><span class="badge-feat badge-ux">UX</span></td><td>popup.js, content.js</td><td>enabled property filter</td></tr>
+      <tr><td>Whole-word matching</td><td><span class="badge-feat badge-core">Core</span></td><td>content.js</td><td>\b vs lookaround strategy</td></tr>
+      <tr><td>Search/filter in popup</td><td><span class="badge-feat badge-ux">UX</span></td><td>popup.js</td><td>Case-insensitive substring match</td></tr>
+      <tr><td>Badge count on icon</td><td><span class="badge-feat badge-ux">UX</span></td><td>background.js</td><td>setBadgeText + color coding</td></tr>
+      <tr><td>Keyboard shortcut (Ctrl+Shift+R)</td><td><span class="badge-feat badge-ux">UX</span></td><td>manifest + background</td><td>chrome.commands API</td></tr>
+      <tr><td>Import (JSON x3 formats + CSV)</td><td><span class="badge-feat badge-data">Data</span></td><td>popup.js</td><td>FileReader + format detection</td></tr>
+      <tr><td>Export (JSON + CSV)</td><td><span class="badge-feat badge-data">Data</span></td><td>popup.js</td><td>Blob + createObjectURL</td></tr>
+      <tr><td>Context menu rule creation</td><td><span class="badge-feat badge-ux">UX</span></td><td>background.js</td><td>chrome.contextMenus API</td></tr>
+      <tr><td>Storage sync &rarr; local fallback</td><td><span class="badge-feat badge-perf">Perf</span></td><td>content + background</td><td>getStorage() helper</td></tr>
+    </tbody>
+  </table>
+</section>
+
+</div>
+
+<footer>
+  Built by Anav Gupta &middot; <a href="https://github.com/anavgupta/text-replacer-extension">GitHub</a> &middot; 186 tests passing
+</footer>
+
+<script>
+// Scope matching (extracted from content.js)
+function matchesSingleScope(url, scope) {
+  if (!scope || scope.trim() === '') return true;
+  try {
+    const urlObj = new URL(url);
+    const scopeLower = scope.toLowerCase().trim();
+    const fullUrl = url.toLowerCase();
+    if (scopeLower.includes('*')) {
+      const pattern = scopeLower.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+      const regex = new RegExp(pattern, 'i');
+      if (regex.test(fullUrl)) return true;
+      if (regex.test(urlObj.hostname)) return true;
+      return false;
+    }
+    if (scopeLower.startsWith('http://') || scopeLower.startsWith('https://'))
+      return fullUrl.includes(scopeLower);
+    return urlObj.hostname.toLowerCase().includes(scopeLower) || fullUrl.includes(scopeLower);
+  } catch (e) { return false; }
+}
+function matchesScope(url, scope) {
+  if (!scope || scope.trim() === '') return true;
+  return scope.split(',').map(s => s.trim()).filter(Boolean).some(s => matchesSingleScope(url, s));
+}
+
+function testScope() {
+  const url = document.getElementById('scopeUrl').value;
+  const scope = document.getElementById('scopePattern').value;
+  const result = document.getElementById('scopeResult');
+  try {
+    const matches = matchesScope(url, scope);
+    if (matches) {
+      result.innerHTML = '<span style="color:var(--green); font-weight:700;">MATCH</span> &mdash; This rule <strong>would apply</strong> on this URL.';
+    } else {
+      result.innerHTML = '<span style="color:var(--red); font-weight:700;">NO MATCH</span> &mdash; This rule would <strong>not apply</strong> on this URL.';
+    }
+  } catch(e) {
+    result.innerHTML = '<span style="color:var(--red);">Error: ' + e.message + '</span>';
+  }
+}
+
+function testRegex() {
+  const text = document.getElementById('regexText').value;
+  const find = document.getElementById('regexFind').value;
+  const replace = document.getElementById('regexReplace').value;
+  const wholeWord = document.getElementById('regexWholeWord').checked;
+  const result = document.getElementById('regexResult');
+
+  if (!find) { result.textContent = 'Enter a search term.'; return; }
+
+  const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let pattern;
+  if (wholeWord) {
+    const hasSpecial = /[^a-zA-Z0-9_]/.test(find);
+    if (hasSpecial) pattern = `(?<=^|[\\s])${escaped}(?=[\\s]|$)`;
+    else pattern = `\\b${escaped}\\b`;
+  } else {
+    pattern = escaped;
+  }
+
+  try {
+    const regex = new RegExp(pattern, 'gi');
+    let html = '';
+    let lastIndex = 0;
+    let match;
+    const tempRegex = new RegExp(pattern, 'gi');
+    while ((match = tempRegex.exec(text)) !== null) {
+      html += escHtml(text.slice(lastIndex, match.index));
+      html += '<span class="original">' + escHtml(match[0]) + '</span>';
+      html += '<span class="match">' + escHtml(replace) + '</span>';
+      lastIndex = match.index + match[0].length;
+      if (match[0].length === 0) break;
+    }
+    html += escHtml(text.slice(lastIndex));
+    if (lastIndex === 0) html = '<span style="color:var(--text3);">No matches found.</span>';
+    result.innerHTML = html;
+  } catch(e) {
+    result.innerHTML = '<span style="color:var(--red);">Regex error: ' + e.message + '</span>';
+  }
+}
+
+function escHtml(t) {
+  const d = document.createElement('div');
+  d.textContent = t;
+  return d.innerHTML;
+}
+
+// Nav active state
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('nav a');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => { if (window.scrollY >= s.offsetTop - 100) current = s.id; });
+  navLinks.forEach(l => {
+    l.classList.remove('active');
+    if (l.getAttribute('href') === '#' + current) l.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

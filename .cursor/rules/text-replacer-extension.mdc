@@ -1,5 +1,5 @@
 ---
-description: Rules for the Text Replacer Chrome/Edge extension — architecture, common pitfalls, and testing patterns learned during development.
+description: Rules for the ReText Chrome/Edge extension — architecture, common pitfalls, and testing patterns learned during development.
 globs:
   - "*.js"
   - "*.html"
@@ -8,7 +8,7 @@ globs:
   - "tests/**"
 ---
 
-# Text Replacer Extension — Project Rules
+# ReText Extension — Project Rules
 
 ## Architecture
 

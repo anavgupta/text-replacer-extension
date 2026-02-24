@@ -1,0 +1,213 @@
+---
+description: Skill for building and maintaining interactive "How It Works" visual explainer documents — schema, section checklist, styling conventions, and staleness detection.
+globs:
+  - "docs/how-it-works.html"
+  - "docs/**-explainer.html"
+  - "scripts/doc-sync-check.js"
+---
+
+# Visual Explainer Document — Skill & Schema
+
+## Purpose
+
+Create a single-page interactive website that explains how a codebase works. The document must be self-contained (HTML + embedded CSS + embedded JS), visually rich, and keep pace with the source code via automated staleness checks.
+
+---
+
+## Required Sections (follow this order)
+
+Every explainer document MUST include these sections. Each section maps to a `<section id="...">` element.
+
+### 1. Hero
+
+- Gradient headline with project name
+- One-sentence description of what the project does
+- **Stats bar**: file count, lines of code, test count, feature count
+- These stats must be derived from the actual codebase at generation time
+
+### 2. Architecture Overview
+
+- **Card grid** (one card per isolated component/context)
+  - Card title = component name
+  - Card subtitle = filename(s) + line count
+  - Bullet list of responsibilities
+  - Top-border color to visually distinguish components
+- **Data flow diagram**: use inline `<div class="flow">` with nodes and arrows showing how data moves between components
+- **Key config snippet**: syntax-highlighted code block of the project's entry-point config (e.g., `manifest.json`, `package.json`)
+
+### 3. Core Algorithm(s)
+
+- Visual representation of the algorithm's input structure (e.g., a DOM tree, a data pipeline, a request flow)
+- Use a styled `<div>` with monospace font, color-coded node types, and arrow annotations
+- Syntax-highlighted code block of the core function, with `<span class="hl">` highlight on the key lines
+- Explain the **branching logic** (what gets processed vs. skipped and why)
+
+### 4. Pattern Matching / Filtering Logic
+
+- **Interactive demo**: input fields where the user can type values, a button to run the logic, and a result `<div>` that updates live
+- **Pre-built example grid**: 2-column grid showing 4+ patterns with expected results (MATCH / NO MATCH, color-coded)
+- Code block showing the matching function
+
+### 5. Input Processing / Transformation
+
+- **Interactive demo**: input text + parameters + action button → result with visual diff (strikethrough for removed, highlight for added)
+- Code block showing the transformation logic, highlighting the key branching decision
+- Explain edge cases that were discovered during development
+
+### 6. Performance Optimizations
+
+- **Flow diagram** showing the optimization pipeline (e.g., Event → Debounce → Single Execution)
+- Code block (keep it short — the "6 lines that cut CPU by 90%" pattern)
+- Link to any standalone deep-dive explainer if one exists
+
+### 7. Inter-Component Communication
+
+- **Timeline** using a vertical line with colored dots for each step
+- Each step: title (what happens) + description (which API/function is called)
+- Color-code by component (use the same colors as the Architecture cards)
+
+### 8. Data Persistence / Storage
+
+- Code block showing the storage abstraction
+- **Data shape example**: a styled JSON block showing the exact structure stored
+- Note any cross-platform quirks (e.g., sync vs. local fallback)
+
+### 9. Data Import / Export
+
+- **Card grid** (one card per supported format)
+  - Format name, file signature (how to detect it)
+  - Field mapping bullets
+- If there's CSV, note quoting/escaping rules
+
+### 10. Bugs & Lessons Learned
+
+- **Bug cards**: each with a red header (bug title), description, and a green header (fix title) with the corrected code
+- Focus on bugs that are **non-obvious** — regex pitfalls, timing issues, boundary failures
+- Include before/after code diffs inside the card
+
+### 11. Feature Map
+
+- **Full-width table** with columns: Feature | Category | File(s) | Key Pattern
+- Category uses colored badge pills: Core, Perf, UX, Data (or project-relevant categories)
+- Every user-facing feature AND every internal optimization must appear here
+
+---
+
+## Styling Conventions
+
+### Color Palette (dark theme)
+
+```
+--bg: #0f172a    --bg2: #1e293b   --bg3: #334155
+--text: #e2e8f0  --text2: #94a3b8 --text3: #64748b
+--blue: #60a5fa  --purple: #a78bfa --green: #86efac
+--red: #fca5a5   --yellow: #fbbf24 --orange: #fdba74
+--cyan: #67e8f9  --pink: #f9a8d4
+```
+
+### Component Color Mapping
+
+Assign each architectural component a consistent color pair used in cards, flow nodes, timeline dots, and feature badges:
+
+| Component Type    | Border/Accent             | Background          |
+|-------------------|--------------------------|---------------------|
+| Content / Engine  | green → cyan gradient    | `#052e16` dark green |
+| UI / Frontend     | blue → purple gradient   | `#172554` dark blue  |
+| Background / Infra| orange → yellow gradient | `#431407` dark orange |
+| Storage / Data    | purple solid             | `#1e1b4b` dark purple|
+
+### Code Blocks
+
+- Dark background (`#0c1222`), header bar with filename + description
+- Syntax highlighting via `<span>` classes: `.kw` (purple), `.fn` (blue), `.str` (green), `.num` (yellow), `.cm` (gray), `.op` (light gray)
+- Key lines wrapped in `<span class="hl">` with left blue border + subtle background
+
+### Interactive Demos
+
+- Contained in a `.demo-box` with `--bg2` background and rounded border
+- Inputs use monospace font, `--bg` background, `--bg3` border
+- Buttons are small, bold, colored by action type (blue = test, green = execute)
+- Results use `--bg` background with `.match` (green) and `.original` (red strikethrough) spans
+
+### Navigation
+
+- Fixed top `<nav>` bar with glassmorphism (`backdrop-filter: blur`)
+- Links scroll to section IDs
+- Active link highlighted on scroll via `IntersectionObserver` or scroll listener
+
+---
+
+## Staleness Detection
+
+The document tracks which source files it was built from using a metadata comment:
+
+```html
+<!-- DOC-SYNC
+  sources: content.js, popup.js, popup.html, popup.css, background.js, manifest.json
+  generated: 2026-02-23T12:00:00Z
+  source-hash: <sha256 of concatenated source files>
+-->
+```
+
+### Sync Check Script (`scripts/doc-sync-check.js`)
+
+A Node.js script that:
+1. Reads the `DOC-SYNC` comment from the HTML doc
+2. Hashes the current source files
+3. Compares hashes — if different, prints a warning with which files changed
+4. Exits with code 1 (stale) or 0 (up to date)
+
+This script is called by the **post-commit git hook**.
+
+---
+
+## Git Hook Integration
+
+### Post-commit hook (`.git/hooks/post-commit`)
+
+After every commit:
+1. Run the test suite (`node tests/test-all.js`)
+2. Run the doc-sync check (`node scripts/doc-sync-check.js`)
+3. If tests fail → print error (commit already happened, but warns developer)
+4. If doc is stale → print warning with instructions to regenerate
+
+### Pre-commit hook (`.git/hooks/pre-commit`)
+
+Before every commit:
+1. Run the test suite — if tests fail, **block the commit**
+2. This ensures no broken code is committed
+
+---
+
+## When to Regenerate the Document
+
+Regenerate `docs/how-it-works.html` when ANY of these change:
+
+- A new section is added to a source file (new function, new feature)
+- The data shape in storage changes (new fields)
+- A new bug is discovered and fixed
+- Architecture changes (new files, renamed components)
+- The manifest version or permissions change
+- Test count changes significantly
+
+After regenerating, update the `DOC-SYNC` comment hash by running:
+```bash
+node scripts/doc-sync-check.js --update
+```
+
+---
+
+## Checklist for Creating a New Explainer
+
+- [ ] All 11 sections present and in order
+- [ ] Hero stats match actual codebase metrics
+- [ ] At least 2 interactive demos (input → output)
+- [ ] All code blocks use syntax highlighting spans
+- [ ] Navigation bar links to every section
+- [ ] Active nav state updates on scroll
+- [ ] Every architectural component has a consistent color
+- [ ] Bug cards have before/after code
+- [ ] Feature table is complete (cross-check with actual features)
+- [ ] DOC-SYNC metadata comment is present
+- [ ] `doc-sync-check.js` passes
+- [ ] Document tested in browser (all demos functional)

@@ -1,6 +1,6 @@
-# Building a Chrome/Edge Text Replacer Extension
+# Building ReText — A Chrome/Edge Text Replacement Extension
 
-A comprehensive guide to building a browser extension that replaces text on web pages with configurable rules.
+A comprehensive guide to building a browser extension that finds and replaces text on web pages with configurable rules.
 
 ---
 
@@ -63,7 +63,7 @@ The manifest is the extension's configuration file. We use **Manifest V3** (requ
 ```json
 {
   "manifest_version": 3,
-  "name": "Text Replacer",
+  "name": "ReText",
   "version": "1.0.0",
   "description": "Replace text on web pages",
   
@@ -687,7 +687,7 @@ if (regex.test(urlObj.hostname)) return true;
 1. Go to any web page
 2. Open DevTools (F12)
 3. Console shows content script logs
-4. Look for "Text Replacer:" prefixed messages
+4. Look for "ReText:" prefixed messages
 
 ### Debugging Background Worker
 
@@ -699,10 +699,104 @@ if (regex.test(urlObj.hostname)) return true;
 ### Adding Debug Logs
 
 ```javascript
-console.log('Text Replacer: Content script loaded on', window.location.href);
-console.log('Text Replacer: Found', replacements.length, 'replacements');
-console.log('Text Replacer: Active for this page:', activeReplacements.length);
+console.log('ReText: Content script loaded on', window.location.href);
+console.log('ReText: Found', replacements.length, 'replacements');
+console.log('ReText: Active for this page:', activeReplacements.length);
 ```
+
+---
+
+## v2.0 Features
+
+### Storage Fallback (F2)
+
+Edge may not support `chrome.storage.sync` without sign-in. A `getStorage()` helper tries sync first, falling back to local:
+
+```javascript
+function getStorage() {
+  try {
+    if (chrome.storage.sync) return chrome.storage.sync;
+  } catch (e) { /* sync unavailable */ }
+  return chrome.storage.local;
+}
+```
+
+All storage calls in `popup.js`, `content.js`, and `background.js` use `getStorage()` instead of hardcoding `chrome.storage.sync`.
+
+### Regex Mode (F4)
+
+Rules can optionally treat the "find" text as a regular expression. When `isRegex` is true, the text is used as-is without escaping:
+
+```javascript
+if (isRegex) {
+  pattern = textToReplace;  // Raw regex
+} else {
+  pattern = textToReplace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+```
+
+Invalid regex patterns are caught with try/catch and silently skipped.
+
+### Rule Groups (F7)
+
+Each rule has an optional `group` field. Groups appear as a column in the table and in search/filter. A `<datalist>` provides autocomplete from existing group names.
+
+### Context Menu (F10)
+
+Right-clicking selected text shows "Create replacement for '...'" in the browser context menu. This stores the text temporarily in storage and opens the popup with the field pre-filled.
+
+```javascript
+chrome.contextMenus.create({
+  id: 'create-replacement',
+  title: 'Create replacement for "%s"',
+  contexts: ['selection']
+});
+```
+
+### Undo Delete (F6)
+
+Instead of a `confirm()` dialog, deleting a rule shows a toast notification with an "Undo" button that lasts 5 seconds.
+
+### Skip Script/Style Nodes (F12)
+
+The DOM walker skips `SCRIPT`, `STYLE`, `TEXTAREA`, `NOSCRIPT`, `CODE`, and `PRE` elements:
+
+```javascript
+const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'NOSCRIPT', 'CODE', 'PRE']);
+
+function replaceTextInNode(node, replacements) {
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    if (SKIP_TAGS.has(node.tagName)) return;
+    // ... recurse into children
+  }
+}
+```
+
+### Toast Notifications (TD5)
+
+All `alert()` calls replaced with non-blocking toast messages. The `showToast(message, type, duration, actionLabel, actionCallback)` function supports success/error/warning/info types and optional action buttons.
+
+### CSS Variables (TD7)
+
+All colors and design tokens extracted to CSS custom properties under `:root`, enabling future theming and dark mode:
+
+```css
+:root {
+  --color-primary: #4a90e2;
+  --color-bg: #f8f9fa;
+  --color-text: #333333;
+  /* ... */
+}
+```
+
+### Accessibility (TD6)
+
+- Modal has `role="dialog"`, `aria-modal="true"`, `aria-labelledby`
+- All `<label>` elements use `for="..."` to associate with inputs
+- Buttons have `aria-label` attributes
+- Search has `role="search"` and `aria-label`
+- Table headers use `scope="col"`
+- Focus-visible styles on interactive elements
 
 ---
 
@@ -712,31 +806,23 @@ console.log('Text Replacer: Active for this page:', activeReplacements.length);
 GCExtension - Replacer/
 ├── manifest.json           # Extension configuration (Manifest V3)
 ├── content.js              # Content script - injected into web pages
-├── background.js           # Service worker - extension lifecycle
-├── popup.html              # Popup UI structure
-├── popup.css               # Popup UI styles (table layout, modal)
-├── popup.js                # Popup UI logic (CRUD, import/export)
+├── background.js           # Service worker - lifecycle, badge, context menu
+├── popup.html              # Popup UI structure (accessible, grouped)
+├── popup.css               # Popup styles (CSS variables, toasts)
+├── popup.js                # Popup logic (CRUD, import/export, toasts, undo)
 ├── icon16.png              # Toolbar icon (16x16)
 ├── icon48.png              # Extension page icon (48x48)
 ├── icon128.png             # Store/large icon (128x128)
+├── tests/
+│   └── test-all.js         # 256 unit tests
 ├── data/
 │   └── codes.json          # Sample data file (codes with array scopes)
 ├── docs/
 │   └── DEVELOPMENT_GUIDE.md  # This documentation
-├── dist/
-│   └── TextReplacer/       # Clean packaged extension folder
-│       ├── manifest.json
-│       ├── content.js
-│       ├── background.js
-│       ├── popup.html
-│       ├── popup.css
-│       ├── popup.js
-│       └── icon*.png
 ├── .gitignore              # Git ignore rules
 ├── README.md               # User-facing documentation
 ├── create-icons.ps1        # PowerShell script to generate icons
-├── generate-icons.html     # HTML tool to generate icons
-└── TextReplacer-*.zip      # Packaged releases
+└── generate-icons.html     # HTML tool to generate icons
 ```
 
 ---
@@ -747,14 +833,18 @@ GCExtension - Replacer/
 |---------|--------------|
 | **Manifest V3** | Required for Chrome/Edge, uses service workers |
 | **Content Scripts** | Run in page context, can access DOM |
-| **Storage API** | Use `local` for compatibility, `sync` for cross-device |
-| **DOM Traversal** | Only modify TEXT_NODE to preserve structure |
-| **MutationObserver** | Handle dynamic content (SPA, AJAX) |
-| **Regex Escaping** | Always escape user input for regex |
+| **Storage Fallback** | `getStorage()` tries sync, falls back to local for Edge |
+| **DOM Traversal** | Only modify TEXT_NODE, skip SCRIPT/STYLE/TEXTAREA/etc. |
+| **MutationObserver** | Handle dynamic content (SPA, AJAX), debounced at 150ms |
+| **Regex Escaping** | Always escape user input for regex; raw patterns via isRegex |
 | **Global Flag Bug** | Don't use `test()` before `replace()` with `g` flag |
 | **Multi-Scope** | Support comma-separated scopes, array import |
 | **URL Path Matching** | Test scope against full URL, not just hostname |
 | **Trailing Slash** | Use `*/path*` not `*/path/*` to match URLs ending with `/path` |
+| **Toast Notifications** | Non-blocking feedback with optional undo actions |
+| **Rule Groups** | Organize rules into named groups with autocomplete |
+| **CSS Variables** | All design tokens in `:root` for easy theming |
+| **Accessibility** | ARIA roles, labels, focus management throughout |
 
 ---
 

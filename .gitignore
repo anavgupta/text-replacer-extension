@@ -10,5 +10,9 @@ Thumbs.db
 *.log
 *.tmp
 
+# Node dependencies (dev only — icon generation)
+node_modules/
+package-lock.json
+
 # Local data files (not committed)
 data/*.local.json
