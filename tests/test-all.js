@@ -541,9 +541,7 @@ assertEqual(manifest.content_scripts[0].run_at, 'document_end', 'Runs at documen
 assert(manifest.content_scripts[0].all_frames === true, 'Runs in all frames');
 assertEqual(manifest.action.default_popup, 'popup.html', 'Popup declared');
 assertEqual(manifest.background.service_worker, 'background.js', 'Background worker declared');
-assert(manifest.commands !== undefined, 'Commands section exists');
-assert(manifest.commands['toggle-extension'] !== undefined, 'Toggle command exists');
-assertEqual(manifest.commands['toggle-extension'].suggested_key.default, 'Alt+Shift+R', 'Shortcut is Alt+Shift+R');
+assert(manifest.commands === undefined, 'Commands section removed (shortcut removed)');
 
 // Check all referenced files exist
 const extDir = path.join(__dirname, '..');
@@ -877,10 +875,8 @@ assert(bgJs.includes('globalEnabled'), 'background.js manages globalEnabled');
 assert(bgJs.includes('updateBadge'), 'background.js has updateBadge function');
 assert(bgJs.includes('chrome.action.setBadgeText'), 'background.js sets badge text');
 assert(bgJs.includes('chrome.action.setBadgeBackgroundColor'), 'background.js sets badge color');
-assert(bgJs.includes('chrome.commands.onCommand'), 'background.js handles keyboard commands');
-assert(bgJs.includes("command === 'toggle-extension'"), 'background.js handles toggle-extension command');
+assert(!bgJs.includes('chrome.commands.onCommand'), 'background.js no longer has keyboard command listener');
 assert(bgJs.includes('chrome.storage.onChanged'), 'background.js listens to storage changes');
-assert(bgJs.includes("action: 'toggleGlobal'"), 'background.js sends toggleGlobal message');
 assert(bgJs.includes("text: 'OFF'"), 'background.js shows OFF badge');
 assert(bgJs.includes("color: '#f44336'"), 'background.js uses red for OFF state');
 assert(bgJs.includes('#4caf50'), 'background.js uses green for active state');
@@ -1213,7 +1209,6 @@ if (fs.existsSync(distDir)) {
   // If dist exists, it must be current
   const distManifest = JSON.parse(fs.readFileSync(path.join(distDir, 'manifest.json'), 'utf8'));
   assertEqual(distManifest.version, manifest.version, 'dist manifest version matches source');
-  assert(distManifest.commands !== undefined, 'dist manifest has commands');
   assert(distManifest.permissions.includes('contextMenus'), 'dist manifest has contextMenus');
   
   const distContentJs = fs.readFileSync(path.join(distDir, 'content.js'), 'utf8');

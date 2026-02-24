@@ -408,23 +408,6 @@ header h1 {
   outline-offset: 2px;
 }
 
-/* Shortcut hint */
-.shortcut-hint {
-  text-align: center;
-  padding-top: 8px;
-  font-size: 10px;
-  color: var(--color-text-placeholder);
-}
-
-.shortcut-hint kbd {
-  display: inline-block;
-  background: var(--color-bg-header);
-  border: 1px solid var(--color-border-input);
-  border-radius: var(--radius-sm);
-  padding: 1px 4px;
-  font-family: monospace;
-  font-size: 10px;
-}
 
 /* Toast Notifications */
 .toast-container {

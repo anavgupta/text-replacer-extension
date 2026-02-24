@@ -16,8 +16,8 @@ This is a Manifest V3 Chrome/Edge extension with four main components:
 
 - **content.js** — Injected into every page. Walks the DOM (`Node.TEXT_NODE`), applies replacements, and re-runs via `MutationObserver` on dynamic content.
 - **popup.js / popup.html / popup.css** — The extension popup UI. Table-based list of rules, modal for add/edit, search bar, global toggle, import/export.
-- **background.js** — Service worker. Manages badge count, handles the keyboard shortcut (`Ctrl+Shift+R`), broadcasts toggle messages to all tabs.
-- **manifest.json** — Declares permissions (`storage`, `activeTab`), content scripts, commands, and icons.
+- **background.js** — Service worker. Manages badge count, context menu, broadcasts toggle messages to all tabs.
+- **manifest.json** — Declares permissions (`storage`, `activeTab`, `contextMenus`), content scripts, and icons.
 
 Communication flow: popup ↔ storage ↔ content script, popup → background (badge), background → tabs (global toggle broadcast).
 

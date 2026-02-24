@@ -47,30 +47,6 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
-chrome.commands.onCommand.addListener((command) => {
-  if (command === 'toggle-extension') {
-    getStorage().get(['globalEnabled', 'replacements'], (result) => {
-      const newState = !result.globalEnabled;
-      getStorage().set({ globalEnabled: newState }, () => {
-        const count = newState ? (result.replacements || []).filter(r => r.enabled !== false).length : 0;
-        updateBadge(count);
-
-        chrome.tabs.query({}, (tabs) => {
-          tabs.forEach(tab => {
-            if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('edge://')) {
-              chrome.tabs.sendMessage(tab.id, { action: 'toggleGlobal', enabled: newState }).catch(() => {});
-            }
-          });
-        });
-
-        if (!newState) {
-          chrome.action.setBadgeText({ text: 'OFF' });
-          chrome.action.setBadgeBackgroundColor({ color: '#f44336' });
-        }
-      });
-    });
-  }
-});
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'sync' || areaName === 'local') {
